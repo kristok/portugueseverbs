@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learn Portuguese Verbs</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; }
+    .container { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 32px; }
+    h1 { text-align: center; color: #2c3e50; }
+    .verb { font-size: 1.2em; margin-bottom: 16px; text-align: center; }
+    .sentences { margin: 24px 0; }
+    .sentence-btn {
+      display: block;
+      width: 100%;
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #f5f5f5;
+      cursor: pointer;
+      transition: background 0.2s, border 0.2s;
+      font-size: 1em;
+      text-align: left;
+    }
+    .sentence-btn.selected { border-color: #3498db; background: #eaf6fb; }
+    .sentence-btn.correct { border-color: #27ae60; background: #eafaf1; }
+    .sentence-btn.incorrect { border-color: #e74c3c; background: #faeaea; }
+    .next-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1em;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background 0.2s;
+    }
+    .next-btn:disabled { background: #b2d6f5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container" v-if="!allDone && currentVerb">
+      <h1>Learn Portuguese Verbs</h1>
+      <div class="verb">
+        <strong>Verb:</strong> {{ currentVerb.verb }}
+      </div>
+      <div class="sentences">
+        <button
+          v-for="(sentence, idx) in shuffledSentences"
+          :key="idx"
+          class="sentence-btn"
+          :class="{
+            selected: selectedIdx === idx,
+            correct: correctFound && idx === correctIdx,
+            incorrect: incorrectGuesses.includes(idx)
+          }"
+          @click="selectSentence(idx)"
+          :disabled="correctFound || incorrectGuesses.includes(idx)"
+        >
+          {{ sentence }}
+        </button>
+      </div>
+      <button class="next-btn" :disabled="!correctFound" @click="nextVerb">
+        Next
+      </button>
+      <!-- Progress Bar -->
+      <div style="margin: 24px 0 0 0; display: flex; align-items: center; gap: 16px;">
+        <span style="white-space: nowrap; font-weight: 500; color: #555;">Progress</span>
+        <div
+          style="flex: 1; position: relative; display: flex; align-items: center;"
+          @mouseenter="showTooltip = true"
+          @mouseleave="showTooltip = false"
+        >
+          <div style="flex: 1; position: relative; height: 24px; background: #eee; border-radius: 12px; overflow: hidden;">
+            <div :style="{
+              width: progressPercent + '%',
+              background: '#27ae60',
+              height: '100%',
+              transition: 'width 0.3s'
+            }"></div>
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #222;">
+              {{ progressPercent }}%
+            </div>
+          </div>
+          <div v-if="showTooltip" style="position: absolute; top: -36px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 0.95em; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100; pointer-events: none;">
+            {{ mastered.size }} of {{ mastered.size + queue.length }} mastered
+          </div>
+        </div>
+      </div>
+      <!-- Reset Progress Button -->
+      <button @click="clearStorageAndReload" style="margin-top: 18px; margin-bottom: 0; padding: 10px 22px; background: #eee; color: #333; border: none; border-radius: 6px; font-size: 1em; font-weight: 500; cursor: pointer; transition: background 0.2s; align-self: flex-start; display: flex; align-items: center; gap: 8px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 6px;"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c1.93 0 3.68.78 4.95 2.05A7 7 0 1 1 5 12H3a9 9 0 1 0 14.65-5.65z" fill="#3498db"/></svg>
+        Reset progress
+      </button>
+    </div>
+    <div class="container" v-else>
+      <h1>All done!</h1>
+      <p>You've completed all verbs. Refresh to practice again.</p>
+    </div>
+  </div>
+  <script type="module">
+    import { irregularVerbs } from './irregular_verbs.js';
+    import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js';
+
+    // Helper to generate spaced repetition queue
+    function createInitialQueue(verbs) {
+      return verbs.map((q, idx) => ({
+        id: q.id,
+        data: q,
+        correctStreak: 0,
+        due: 0 // due now
+      }));
+    }
+
+    function saveQueueToStorage(queue) {
+      localStorage.setItem('spacedQueue', JSON.stringify(queue));
+    }
+    function loadQueueFromStorage() {
+      const raw = localStorage.getItem('spacedQueue');
+      if (!raw) return null;
+      try {
+        const arr = JSON.parse(raw);
+        // Defensive: filter out malformed entries
+        return Array.isArray(arr) ? arr.filter(q => q && q.id && q.data) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveMasteredToStorage(masteredSet) {
+      localStorage.setItem('masteredQuestions', JSON.stringify(Array.from(masteredSet)));
+    }
+    function loadMasteredFromStorage() {
+      const raw = localStorage.getItem('masteredQuestions');
+      if (!raw) return new Set();
+      try {
+        const arr = JSON.parse(raw);
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch {
+        return new Set();
+      }
+    }
+
+    const app = createApp({
+      data() {
+        return {
+          allVerbs: [...irregularVerbs], // will be replaced after regulars load
+          queue: [],
+          shuffledSentences: [],
+          correctIdx: null,
+          selectedIdx: null,
+          correctFound: false,
+          incorrectGuesses: [],
+          regularsLoaded: false,
+          loading: true,
+          mastered: loadMasteredFromStorage(),
+          showTooltip: false,
+        };
+      },
+      computed: {
+        currentQueueItem() {
+          // Find the first item due now (due <= 0)
+          return this.queue.find(q => q.due <= 0) || null;
+        },
+        currentVerb() {
+          return this.currentQueueItem ? this.currentQueueItem.data : null;
+        },
+        allDone() {
+          return this.queue.length === 0 || !this.currentQueueItem;
+        },
+        progressPercent() {
+          const total = this.queue.length + this.mastered.size;
+          if (total === 0) return 100;
+          return Math.round((this.mastered.size / total) * 100);
+        }
+      },
+      methods: {
+        shuffleSentences() {
+          if (!this.currentVerb) return;
+          const sentences = [this.currentVerb.correct, ...this.currentVerb.wrong];
+          for (let i = sentences.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [sentences[i], sentences[j]] = [sentences[j], sentences[i]];
+          }
+          this.shuffledSentences = sentences;
+          this.correctIdx = sentences.indexOf(this.currentVerb.correct);
+          this.selectedIdx = null;
+          this.correctFound = false;
+          this.incorrectGuesses = [];
+        },
+        selectSentence(idx) {
+          this.selectedIdx = idx;
+          if (idx === this.correctIdx) {
+            this.correctFound = true;
+          } else {
+            if (!this.incorrectGuesses.includes(idx)) {
+              this.incorrectGuesses.push(idx);
+            }
+          }
+        },
+        nextVerb() {
+          if (!this.currentQueueItem) return;
+          const q = this.currentQueueItem;
+          if (this.selectedIdx === this.correctIdx) {
+            // Correct answer
+            q.correctStreak++;
+            if (q.correctStreak >= 1) {
+              // Remove from queue and mark as mastered
+              this.queue = this.queue.filter(item => item.id !== q.id);
+              this.mastered.add(q.id);
+              saveMasteredToStorage(this.mastered);
+            } else {
+              // Schedule for later (3, 10, 30)
+              q.due = [3, 10, 30][q.correctStreak - 1];
+            }
+          } else {
+            // Wrong answer: reset streak, requeue for 3, 10, 30 again
+            q.correctStreak = 0;
+            q.due = 3;
+          }
+          // Decrement due for all other items
+          this.queue.forEach(item => {
+            if (item.id !== q.id && item.due > 0) item.due--;
+          });
+          // If the current item is still in the queue, move it to the end
+          if (this.queue.find(item => item.id === q.id)) {
+            // Remove and push to end
+            const idx = this.queue.findIndex(item => item.id === q.id);
+            const [item] = this.queue.splice(idx, 1);
+            this.queue.push(item);
+          }
+          saveQueueToStorage(this.queue);
+          this.shuffleSentences();
+        },
+        clearStorageAndReload() {
+          localStorage.clear();
+          window.location.reload();
+        },
+        initializeQueue() {
+          // Try to load from storage
+          this.mastered = loadMasteredFromStorage();
+          const loaded = loadQueueFromStorage();
+          if (loaded && loaded.length > 0) {
+            // Filter out mastered
+            this.queue = loaded.filter(q => !this.mastered.has(q.id));
+          } else {
+            this.queue = createInitialQueue(this.allVerbs).filter(q => !this.mastered.has(q.id));
+            saveQueueToStorage(this.queue);
+          }
+          this.loading = false;
+          this.shuffleSentences();
+        }
+      },
+      mounted() {
+        // Dynamically load regular verbs after mount
+        import('./verbs_data.js').then(module => {
+          // Interleave irregular and regular verbs 1:1
+          const regulars = module.regularVerbs;
+          const irregulars = irregularVerbs;
+          const mixed = [];
+          const maxLen = Math.max(irregulars.length, regulars.length);
+          for (let i = 0; i < maxLen; i++) {
+            if (i < irregulars.length) mixed.push(irregulars[i]);
+            if (i < regulars.length) mixed.push(regulars[i]);
+          }
+          this.allVerbs = mixed;
+          // Rebuild queue if not already loaded
+          this.mastered = loadMasteredFromStorage();
+          if (!loadQueueFromStorage()) {
+            this.queue = createInitialQueue(this.allVerbs).filter(q => !this.mastered.has(q.id));
+            saveQueueToStorage(this.queue);
+          } else {
+            // Patch queue with new data if needed
+            const loaded = loadQueueFromStorage();
+            // Add any new verbs not in queue or mastered
+            const loadedIds = new Set(loaded.map(q => q.id));
+            const newItems = this.allVerbs.filter(v => !loadedIds.has(v.id) && !this.mastered.has(v.id)).map(q => ({id: q.id, data: q, correctStreak: 0, due: 0}));
+            this.queue = [...loaded.filter(q => !this.mastered.has(q.id)), ...newItems];
+            saveQueueToStorage(this.queue);
+          }
+          this.regularsLoaded = true;
+          this.loading = false;
+          this.shuffleSentences();
+        });
+        // If no regulars yet, initialize with irregulars only
+        this.initializeQueue();
+      }
+    });
+    app.mount('#app');
+  </script>
+</body>
+</html> 

@@ -1,0 +1,4528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learn Portuguese Verbs</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; }
+    .container { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 32px; }
+    h1 { text-align: center; color: #2c3e50; }
+    .verb { font-size: 1.2em; margin-bottom: 16px; text-align: center; }
+    .sentences { margin: 24px 0; }
+    .sentence-btn {
+      display: block;
+      width: 100%;
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #f5f5f5;
+      cursor: pointer;
+      transition: background 0.2s, border 0.2s;
+      font-size: 1em;
+      text-align: left;
+    }
+    .sentence-btn.selected { border-color: #3498db; background: #eaf6fb; }
+    .sentence-btn.correct { border-color: #27ae60; background: #eafaf1; }
+    .sentence-btn.incorrect { border-color: #e74c3c; background: #faeaea; }
+    .next-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1em;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background 0.2s;
+    }
+    .next-btn:disabled { background: #b2d6f5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container" v-if="currentVerb">
+      <h1>Learn Portuguese Verbs</h1>
+      <div class="verb">
+        <strong>Verb:</strong> {{ currentVerb.verb }}
+      </div>
+      <div class="sentences">
+        <button
+          v-for="(sentence, idx) in shuffledSentences"
+          :key="idx"
+          class="sentence-btn"
+          :class="{
+            selected: selectedIdx === idx,
+            correct: correctFound && idx === correctIdx,
+            incorrect: incorrectGuesses.includes(idx)
+          }"
+          @click="selectSentence(idx)"
+          :disabled="correctFound || incorrectGuesses.includes(idx)"
+        >
+          {{ sentence }}
+        </button>
+      </div>
+      <button class="next-btn" :disabled="!correctFound" @click="nextVerb">
+        Next
+      </button>
+    </div>
+    <div class="container" v-else>
+      <h1>All done!</h1>
+      <p>You've completed all verbs. Refresh to practice again.</p>
+    </div>
+  </div>
+  <script>
+    const irregularVerbs = [
+      // PRESENT
+      {
+        id: 'irr-1',
+        verb: 'ser',
+        correct: 'Eu sou estudante.',
+        wrong: [
+          'Eu és estudante.',
+          'Eu é estudante.',
+          'Eu fui estudante.',
+          'Eu era estudante.'
+        ]
+      },
+      {
+        id: 'irr-2',
+        verb: 'ser',
+        correct: 'Tu és simpático.',
+        wrong: [
+          'Tu sou simpático.',
+          'Tu é simpático.',
+          'Tu foste simpático.',
+          'Tu eras simpático.'
+        ]
+      },
+      {
+        id: 'irr-3',
+        verb: 'ser',
+        correct: 'Ele é médico.',
+        wrong: [
+          'Ele sou médico.',
+          'Ele és médico.',
+          'Ele foi médico.',
+          'Ele era médico.'
+        ]
+      },
+      {
+        id: 'irr-4',
+        verb: 'ser',
+        correct: 'Ela é professora.',
+        wrong: [
+          'Ela sou professora.',
+          'Ela és professora.',
+          'Ela foi professora.',
+          'Ela era professora.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Você é engenheiro.',
+        wrong: [
+          'Você sou engenheiro.',
+          'Você és engenheiro.',
+          'Você foi engenheiro.',
+          'Você era engenheiro.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Nós somos amigos.',
+        wrong: [
+          'Nós são amigos.',
+          'Nós fui amigos.',
+          'Nós éramos amigos.',
+          'Nós é amigos.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Eles são estudantes.',
+        wrong: [
+          'Eles somos estudantes.',
+          'Eles foram estudantes.',
+          'Eles eram estudantes.',
+          'Eles é estudantes.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Elas são médicas.',
+        wrong: [
+          'Elas somos médicas.',
+          'Elas foram médicas.',
+          'Elas eram médicas.',
+          'Elas é médicas.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Vocês são professores.',
+        wrong: [
+          'Vocês somos professores.',
+          'Vocês foram professores.',
+          'Vocês eram professores.',
+          'Vocês é professores.'
+        ]
+      },
+      // SIMPLE PAST
+      {
+        verb: 'ser',
+        correct: 'Eu fui ao Brasil no ano passado.',
+        wrong: [
+          'Eu sou ao Brasil no ano passado.',
+          'Eu era ao Brasil no ano passado.',
+          'Eu és ao Brasil no ano passado.',
+          'Eu fomos ao Brasil no ano passado.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Tu foste muito corajoso.',
+        wrong: [
+          'Tu és muito corajoso.',
+          'Tu era muito corajoso.',
+          'Tu foi muito corajoso.',
+          'Tu fomos muito corajoso.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Ele foi campeão.',
+        wrong: [
+          'Ele é campeão.',
+          'Ele era campeão.',
+          'Ele fui campeão.',
+          'Ele fomos campeão.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Ela foi premiada.',
+        wrong: [
+          'Ela é premiada.',
+          'Ela era premiada.',
+          'Ela fui premiada.',
+          'Ela fomos premiada.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Você foi muito gentil.',
+        wrong: [
+          'Você é muito gentil.',
+          'Você era muito gentil.',
+          'Você fui muito gentil.',
+          'Você fomos muito gentil.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Nós fomos colegas de turma.',
+        wrong: [
+          'Nós somos colegas de turma.',
+          'Nós éramos colegas de turma.',
+          'Nós foi colegas de turma.',
+          'Nós fui colegas de turma.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Eles foram campeões.',
+        wrong: [
+          'Eles são campeões.',
+          'Eles éramos campeões.',
+          'Eles foi campeões.',
+          'Eles fui campeões.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Elas foram premiadas.',
+        wrong: [
+          'Elas são premiadas.',
+          'Elas éramos premiadas.',
+          'Elas foi premiadas.',
+          'Elas fui premiadas.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Vocês foram ótimos alunos.',
+        wrong: [
+          'Vocês são ótimos alunos.',
+          'Vocês éramos ótimos alunos.',
+          'Vocês foi ótimos alunos.',
+          'Vocês fui ótimos alunos.'
+        ]
+      },
+      // IMPERFECT PAST
+      {
+        verb: 'ser',
+        correct: 'Eu era muito tímido quando criança.',
+        wrong: [
+          'Eu sou muito tímido quando criança.',
+          'Eu fui muito tímido quando criança.',
+          'Eu és muito tímido quando criança.',
+          'Eu éramos muito tímido quando criança.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Tu eras meu vizinho.',
+        wrong: [
+          'Tu és meu vizinho.',
+          'Tu fui meu vizinho.',
+          'Tu era meu vizinho.',
+          'Tu fomos meu vizinho.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Ele era muito estudioso.',
+        wrong: [
+          'Ele é muito estudioso.',
+          'Ele fui muito estudioso.',
+          'Ele éramos muito estudioso.',
+          'Ele fomos muito estudioso.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Ela era bailarina.',
+        wrong: [
+          'Ela é bailarina.',
+          'Ela fui bailarina.',
+          'Ela éramos bailarina.',
+          'Ela fomos bailarina.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Você era muito divertido.',
+        wrong: [
+          'Você é muito divertido.',
+          'Você fui muito divertido.',
+          'Você éramos muito divertido.',
+          'Você fomos muito divertido.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Nós éramos vizinhos.',
+        wrong: [
+          'Nós somos vizinhos.',
+          'Nós fui vizinhos.',
+          'Nós fomos vizinhos.',
+          'Nós era vizinhos.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Eles eram muito unidos.',
+        wrong: [
+          'Eles são muito unidos.',
+          'Eles fui muito unidos.',
+          'Eles fomos muito unidos.',
+          'Eles era muito unidos.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Elas eram amigas de infância.',
+        wrong: [
+          'Elas são amigas de infância.',
+          'Elas fui amigas de infância.',
+          'Elas fomos amigas de infância.',
+          'Elas era amigas de infância.'
+        ]
+      },
+      {
+        verb: 'ser',
+        correct: 'Vocês eram bons colegas.',
+        wrong: [
+          'Vocês são bons colegas.',
+          'Vocês fui bons colegas.',
+          'Vocês fomos bons colegas.',
+          'Vocês era bons colegas.'
+        ]
+      },
+      // IR - PRESENT
+      {
+        verb: 'ir',
+        correct: 'Eu vou ao mercado todos os sábados.',
+        wrong: [
+          'Eu vais ao mercado todos os sábados.',
+          'Eu vai ao mercado todos os sábados.',
+          'Eu fui ao mercado todos os sábados.',
+          'Eu ia ao mercado todos os sábados.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Tu vais à escola de manhã.',
+        wrong: [
+          'Tu vou à escola de manhã.',
+          'Tu vai à escola de manhã.',
+          'Tu foste à escola de manhã.',
+          'Tu ias à escola de manhã.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Ele vai ao ginásio à tarde.',
+        wrong: [
+          'Ele vou ao ginásio à tarde.',
+          'Ele vais ao ginásio à tarde.',
+          'Ele foi ao ginásio à tarde.',
+          'Ele ia ao ginásio à tarde.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Ela vai ao médico amanhã.',
+        wrong: [
+          'Ela vou ao médico amanhã.',
+          'Ela vais ao médico amanhã.',
+          'Ela foi ao médico amanhã.',
+          'Ela ia ao médico amanhã.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Você vai ao banco hoje?',
+        wrong: [
+          'Você vou ao banco hoje?',
+          'Você vais ao banco hoje?',
+          'Você foi ao banco hoje?',
+          'Você ia ao banco hoje?'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Nós vamos ao cinema ao fim de semana.',
+        wrong: [
+          'Nós vão ao cinema ao fim de semana.',
+          'Nós fui ao cinema ao fim de semana.',
+          'Nós íamos ao cinema ao fim de semana.',
+          'Nós vai ao cinema ao fim de semana.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Eles vão viajar nas férias.',
+        wrong: [
+          'Eles vamos viajar nas férias.',
+          'Eles foi viajar nas férias.',
+          'Eles iam viajar nas férias.',
+          'Eles vai viajar nas férias.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Elas vão ao parque todos os dias.',
+        wrong: [
+          'Elas vamos ao parque todos os dias.',
+          'Elas foi ao parque todos os dias.',
+          'Elas iam ao parque todos os dias.',
+          'Elas vai ao parque todos os dias.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Vocês vão à praia no verão.',
+        wrong: [
+          'Vocês vamos à praia no verão.',
+          'Vocês foi à praia no verão.',
+          'Vocês iam à praia no verão.',
+          'Vocês vai à praia no verão.'
+        ]
+      },
+      // IR - SIMPLE PAST
+      {
+        verb: 'ir',
+        correct: 'Eu fui ao teatro ontem.',
+        wrong: [
+          'Eu vou ao teatro ontem.',
+          'Eu ia ao teatro ontem.',
+          'Eu vais ao teatro ontem.',
+          'Eu fomos ao teatro ontem.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Tu foste ao concerto na semana passada.',
+        wrong: [
+          'Tu vais ao concerto na semana passada.',
+          'Tu ia ao concerto na semana passada.',
+          'Tu foi ao concerto na semana passada.',
+          'Tu fomos ao concerto na semana passada.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Ele foi ao dentista na segunda-feira.',
+        wrong: [
+          'Ele vai ao dentista na segunda-feira.',
+          'Ele ia ao dentista na segunda-feira.',
+          'Ele fui ao dentista na segunda-feira.',
+          'Ele fomos ao dentista na segunda-feira.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Ela foi à reunião ontem.',
+        wrong: [
+          'Ela vai à reunião ontem.',
+          'Ela ia à reunião ontem.',
+          'Ela fui à reunião ontem.',
+          'Ela fomos à reunião ontem.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Você foi ao supermercado?',
+        wrong: [
+          'Você vai ao supermercado?',
+          'Você ia ao supermercado?',
+          'Você fui ao supermercado?',
+          'Você fomos ao supermercado?'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Nós fomos a Paris nas férias.',
+        wrong: [
+          'Nós vamos a Paris nas férias.',
+          'Nós íamos a Paris nas férias.',
+          'Nós foi a Paris nas férias.',
+          'Nós fui a Paris nas férias.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Eles foram campeões nacionais.',
+        wrong: [
+          'Eles vão campeões nacionais.',
+          'Eles íamos campeões nacionais.',
+          'Eles foi campeões nacionais.',
+          'Eles fui campeões nacionais.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Elas foram ao concerto juntas.',
+        wrong: [
+          'Elas vão ao concerto juntas.',
+          'Elas íamos ao concerto juntas.',
+          'Elas foi ao concerto juntas.',
+          'Elas fui ao concerto juntas.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Vocês foram ao museu?',
+        wrong: [
+          'Vocês vão ao museu?',
+          'Vocês íamos ao museu?',
+          'Vocês foi ao museu?',
+          'Vocês fui ao museu?'
+        ]
+      },
+      // IR - IMPERFECT PAST
+      {
+        verb: 'ir',
+        correct: 'Eu ia à praia todos os verões.',
+        wrong: [
+          'Eu vou à praia todos os verões.',
+          'Eu fui à praia todos os verões.',
+          'Eu vais à praia todos os verões.',
+          'Eu íamos à praia todos os verões.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Tu ias ao parque com frequência.',
+        wrong: [
+          'Tu vais ao parque com frequência.',
+          'Tu fui ao parque com frequência.',
+          'Tu ia ao parque com frequência.',
+          'Tu fomos ao parque com frequência.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Ele ia ao ginásio todos os dias.',
+        wrong: [
+          'Ele vai ao ginásio todos os dias.',
+          'Ele fui ao ginásio todos os dias.',
+          'Ele íamos ao ginásio todos os dias.',
+          'Ele fomos ao ginásio todos os dias.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Ela ia à escola de bicicleta.',
+        wrong: [
+          'Ela vai à escola de bicicleta.',
+          'Ela fui à escola de bicicleta.',
+          'Ela íamos à escola de bicicleta.',
+          'Ela fomos à escola de bicicleta.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Você ia ao teatro todas as semanas.',
+        wrong: [
+          'Você vai ao teatro todas as semanas.',
+          'Você fui ao teatro todas as semanas.',
+          'Você íamos ao teatro todas as semanas.',
+          'Você fomos ao teatro todas as semanas.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Nós íamos ao campo aos domingos.',
+        wrong: [
+          'Nós vamos ao campo aos domingos.',
+          'Nós fui ao campo aos domingos.',
+          'Nós fomos ao campo aos domingos.',
+          'Nós ia ao campo aos domingos.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Eles iam ao estádio todos os meses.',
+        wrong: [
+          'Eles vão ao estádio todos os meses.',
+          'Eles fui ao estádio todos os meses.',
+          'Eles fomos ao estádio todos os meses.',
+          'Eles ia ao estádio todos os meses.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Elas iam ao ginásio juntas.',
+        wrong: [
+          'Elas vão ao ginásio juntas.',
+          'Elas fui ao ginásio juntas.',
+          'Elas fomos ao ginásio juntas.',
+          'Elas ia ao ginásio juntas.'
+        ]
+      },
+      {
+        verb: 'ir',
+        correct: 'Vocês iam ao restaurante todas as sextas.',
+        wrong: [
+          'Vocês vão ao restaurante todas as sextas.',
+          'Vocês fui ao restaurante todas as sextas.',
+          'Vocês fomos ao restaurante todas as sextas.',
+          'Vocês ia ao restaurante todas as sextas.'
+        ]
+      },
+      // ESTAR - PRESENT
+      {
+        verb: 'estar',
+        correct: 'Eu estou cansado hoje.',
+        wrong: [
+          'Eu estás cansado hoje.',
+          'Eu está cansado hoje.',
+          'Eu estive cansado hoje.',
+          'Eu estava cansado hoje.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Tu estás feliz?',
+        wrong: [
+          'Tu estou feliz?',
+          'Tu está feliz?',
+          'Tu estiveste feliz?',
+          'Tu estavas feliz?'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Ele está doente.',
+        wrong: [
+          'Ele estou doente.',
+          'Ele estás doente.',
+          'Ele esteve doente.',
+          'Ele estava doente.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Ela está em casa.',
+        wrong: [
+          'Ela estou em casa.',
+          'Ela estás em casa.',
+          'Ela esteve em casa.',
+          'Ela estava em casa.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Você está pronto?',
+        wrong: [
+          'Você estou pronto?',
+          'Você estás pronto?',
+          'Você esteve pronto?',
+          'Você estava pronto?'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Nós estamos atrasados.',
+        wrong: [
+          'Nós estão atrasados.',
+          'Nós estive atrasados.',
+          'Nós estávamos atrasados.',
+          'Nós está atrasados.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Eles estão na escola.',
+        wrong: [
+          'Eles estamos na escola.',
+          'Eles estiveram na escola.',
+          'Eles estavam na escola.',
+          'Eles está na escola.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Elas estão ocupadas.',
+        wrong: [
+          'Elas estamos ocupadas.',
+          'Elas estiveram ocupadas.',
+          'Elas estavam ocupadas.',
+          'Elas está ocupadas.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Vocês estão prontos?',
+        wrong: [
+          'Vocês estamos prontos?',
+          'Vocês estiveram prontos?',
+          'Vocês estavam prontos?',
+          'Vocês está prontos?'
+        ]
+      },
+      // ESTAR - SIMPLE PAST
+      {
+        verb: 'estar',
+        correct: 'Eu estive em Lisboa no mês passado.',
+        wrong: [
+          'Eu estou em Lisboa no mês passado.',
+          'Eu estava em Lisboa no mês passado.',
+          'Eu estás em Lisboa no mês passado.',
+          'Eu estivemos em Lisboa no mês passado.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Tu estiveste no concerto ontem.',
+        wrong: [
+          'Tu estás no concerto ontem.',
+          'Tu estava no concerto ontem.',
+          'Tu esteve no concerto ontem.',
+          'Tu estivemos no concerto ontem.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Ele esteve doente na semana passada.',
+        wrong: [
+          'Ele está doente na semana passada.',
+          'Ele estava doente na semana passada.',
+          'Ele estive doente na semana passada.',
+          'Ele estivemos doente na semana passada.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Ela esteve em casa o dia todo.',
+        wrong: [
+          'Ela está em casa o dia todo.',
+          'Ela estava em casa o dia todo.',
+          'Ela estive em casa o dia todo.',
+          'Ela estivemos em casa o dia todo.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Você esteve muito ocupado?',
+        wrong: [
+          'Você está muito ocupado?',
+          'Você estava muito ocupado?',
+          'Você estive muito ocupado?',
+          'Você estivemos muito ocupado?'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Nós estivemos juntos na festa.',
+        wrong: [
+          'Nós estamos juntos na festa.',
+          'Nós estávamos juntos na festa.',
+          'Nós esteve juntos na festa.',
+          'Nós estive juntos na festa.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Eles estiveram em casa ontem.',
+        wrong: [
+          'Eles estão em casa ontem.',
+          'Eles estávamos em casa ontem.',
+          'Eles esteve em casa ontem.',
+          'Eles estive em casa ontem.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Elas estiveram no parque.',
+        wrong: [
+          'Elas estão no parque.',
+          'Elas estávamos no parque.',
+          'Elas esteve no parque.',
+          'Elas estive no parque.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Vocês estiveram na reunião?',
+        wrong: [
+          'Vocês estão na reunião?',
+          'Vocês estávamos na reunião?',
+          'Vocês esteve na reunião?',
+          'Vocês estive na reunião?'
+        ]
+      },
+      // ESTAR - IMPERFECT PAST
+      {
+        verb: 'estar',
+        correct: 'Eu estava cansado todos os dias.',
+        wrong: [
+          'Eu estou cansado todos os dias.',
+          'Eu estive cansado todos os dias.',
+          'Eu estás cansado todos os dias.',
+          'Eu estávamos cansado todos os dias.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Tu estavas sempre atrasado.',
+        wrong: [
+          'Tu estás sempre atrasado.',
+          'Tu estive sempre atrasado.',
+          'Tu estava sempre atrasado.',
+          'Tu estávamos sempre atrasado.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Ele estava doente frequentemente.',
+        wrong: [
+          'Ele está doente frequentemente.',
+          'Ele estive doente frequentemente.',
+          'Ele estávamos doente frequentemente.',
+          'Ele estivemos doente frequentemente.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Ela estava em casa à tarde.',
+        wrong: [
+          'Ela está em casa à tarde.',
+          'Ela estive em casa à tarde.',
+          'Ela estávamos em casa à tarde.',
+          'Ela estivemos em casa à tarde.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Você estava muito cansado?',
+        wrong: [
+          'Você está muito cansado?',
+          'Você estive muito cansado?',
+          'Você estávamos muito cansado?',
+          'Você estivemos muito cansado?'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Nós estávamos juntos na escola.',
+        wrong: [
+          'Nós estamos juntos na escola.',
+          'Nós estive juntos na escola.',
+          'Nós estivemos juntos na escola.',
+          'Nós estava juntos na escola.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Eles estavam sempre ocupados.',
+        wrong: [
+          'Eles estão sempre ocupados.',
+          'Eles estive sempre ocupados.',
+          'Eles estivemos sempre ocupados.',
+          'Eles estava sempre ocupados.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Elas estavam em casa à noite.',
+        wrong: [
+          'Elas estão em casa à noite.',
+          'Elas estive em casa à noite.',
+          'Elas estivemos em casa à noite.',
+          'Elas estava em casa à noite.'
+        ]
+      },
+      {
+        verb: 'estar',
+        correct: 'Vocês estavam prontos para sair?',
+        wrong: [
+          'Vocês estão prontos para sair?',
+          'Vocês estive prontos para sair?',
+          'Vocês estivemos prontos para sair?',
+          'Vocês estava prontos para sair?'
+        ]
+      },
+      // TER - PRESENT
+      {
+        verb: 'ter',
+        correct: 'Eu tenho um carro novo.',
+        wrong: [
+          'Eu tens um carro novo.',
+          'Eu tem um carro novo.',
+          'Eu tive um carro novo.',
+          'Eu tinha um carro novo.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Tu tens muitos amigos.',
+        wrong: [
+          'Tu tenho muitos amigos.',
+          'Tu tem muitos amigos.',
+          'Tu tiveste muitos amigos.',
+          'Tu tinhas muitos amigos.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Ele tem uma bicicleta azul.',
+        wrong: [
+          'Ele tenho uma bicicleta azul.',
+          'Ele tens uma bicicleta azul.',
+          'Ele teve uma bicicleta azul.',
+          'Ele tinha uma bicicleta azul.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Ela tem um gato preto.',
+        wrong: [
+          'Ela tenho um gato preto.',
+          'Ela tens um gato preto.',
+          'Ela teve um gato preto.',
+          'Ela tinha um gato preto.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Você tem tempo agora?',
+        wrong: [
+          'Você tenho tempo agora?',
+          'Você tens tempo agora?',
+          'Você teve tempo agora?',
+          'Você tinha tempo agora?'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Nós temos aulas de manhã.',
+        wrong: [
+          'Nós têm aulas de manhã.',
+          'Nós tive aulas de manhã.',
+          'Nós tínhamos aulas de manhã.',
+          'Nós tem aulas de manhã.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Eles têm provas esta semana.',
+        wrong: [
+          'Eles temos provas esta semana.',
+          'Eles teve provas esta semana.',
+          'Eles tinham provas esta semana.',
+          'Eles tem provas esta semana.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Elas têm reuniões à tarde.',
+        wrong: [
+          'Elas temos reuniões à tarde.',
+          'Elas teve reuniões à tarde.',
+          'Elas tinham reuniões à tarde.',
+          'Elas tem reuniões à tarde.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Vocês têm livros novos?',
+        wrong: [
+          'Vocês temos livros novos?',
+          'Vocês teve livros novos?',
+          'Vocês tinham livros novos?',
+          'Vocês tem livros novos?'
+        ]
+      },
+      // TER - SIMPLE PAST
+      {
+        verb: 'ter',
+        correct: 'Eu tive uma ideia ontem.',
+        wrong: [
+          'Eu tenho uma ideia ontem.',
+          'Eu tinha uma ideia ontem.',
+          'Eu tens uma ideia ontem.',
+          'Eu tivemos uma ideia ontem.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Tu tiveste um teste difícil.',
+        wrong: [
+          'Tu tens um teste difícil.',
+          'Tu tinha um teste difícil.',
+          'Tu teve um teste difícil.',
+          'Tu tivemos um teste difícil.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Ele teve febre na semana passada.',
+        wrong: [
+          'Ele tem febre na semana passada.',
+          'Ele tinha febre na semana passada.',
+          'Ele tive febre na semana passada.',
+          'Ele tivemos febre na semana passada.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Ela teve um acidente.',
+        wrong: [
+          'Ela tem um acidente.',
+          'Ela tinha um acidente.',
+          'Ela tive um acidente.',
+          'Ela tivemos um acidente.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Você teve sorte?',
+        wrong: [
+          'Você tem sorte?',
+          'Você tinha sorte?',
+          'Você tive sorte?',
+          'Você tivemos sorte?'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Nós tivemos férias em agosto.',
+        wrong: [
+          'Nós temos férias em agosto.',
+          'Nós tínhamos férias em agosto.',
+          'Nós teve férias em agosto.',
+          'Nós tive férias em agosto.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Eles tiveram um bom resultado.',
+        wrong: [
+          'Eles têm um bom resultado.',
+          'Eles tínhamos um bom resultado.',
+          'Eles teve um bom resultado.',
+          'Eles tive um bom resultado.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Elas tiveram uma surpresa.',
+        wrong: [
+          'Elas têm uma surpresa.',
+          'Elas tínhamos uma surpresa.',
+          'Elas teve uma surpresa.',
+          'Elas tive uma surpresa.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Vocês tiveram uma boa nota?',
+        wrong: [
+          'Vocês têm uma boa nota?',
+          'Vocês tínhamos uma boa nota?',
+          'Vocês teve uma boa nota?',
+          'Vocês tive uma boa nota?'
+        ]
+      },
+      // TER - IMPERFECT PAST
+      {
+        verb: 'ter',
+        correct: 'Eu tinha medo de escuro.',
+        wrong: [
+          'Eu tenho medo de escuro.',
+          'Eu tive medo de escuro.',
+          'Eu tens medo de escuro.',
+          'Eu tínhamos medo de escuro.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Tu tinhas um cão quando eras pequeno.',
+        wrong: [
+          'Tu tens um cão quando eras pequeno.',
+          'Tu tive um cão quando eras pequeno.',
+          'Tu tinha um cão quando eras pequeno.',
+          'Tu tínhamos um cão quando eras pequeno.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Ele tinha muitos brinquedos.',
+        wrong: [
+          'Ele tem muitos brinquedos.',
+          'Ele tive muitos brinquedos.',
+          'Ele tínhamos muitos brinquedos.',
+          'Ele tínhamos muitos brinquedos.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Ela tinha cabelo comprido.',
+        wrong: [
+          'Ela tem cabelo comprido.',
+          'Ela tive cabelo comprido.',
+          'Ela tínhamos cabelo comprido.',
+          'Ela tínhamos cabelo comprido.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Você tinha tempo livre?',
+        wrong: [
+          'Você tem tempo livre?',
+          'Você tive tempo livre?',
+          'Você tínhamos tempo livre?',
+          'Você tínhamos tempo livre?'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Nós tínhamos muitos sonhos.',
+        wrong: [
+          'Nós temos muitos sonhos.',
+          'Nós tive muitos sonhos.',
+          'Nós tivemos muitos sonhos.',
+          'Nós tinha muitos sonhos.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Eles tinham aulas de música.',
+        wrong: [
+          'Eles têm aulas de música.',
+          'Eles tive aulas de música.',
+          'Eles tivemos aulas de música.',
+          'Eles tinha aulas de música.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Elas tinham bonecas antigas.',
+        wrong: [
+          'Elas têm bonecas antigas.',
+          'Elas tive bonecas antigas.',
+          'Elas tivemos bonecas antigas.',
+          'Elas tinha bonecas antigas.'
+        ]
+      },
+      {
+        verb: 'ter',
+        correct: 'Vocês tinham muitos livros?',
+        wrong: [
+          'Vocês têm muitos livros?',
+          'Vocês tive muitos livros?',
+          'Vocês tivemos muitos livros?',
+          'Vocês tinha muitos livros?'
+        ]
+      },
+      // DAR - PRESENT
+      {
+        verb: 'dar',
+        correct: 'Eu dou sempre o meu melhor.',
+        wrong: [
+          'Eu dás sempre o meu melhor.',
+          'Eu dá sempre o meu melhor.',
+          'Eu dei sempre o meu melhor.',
+          'Eu dava sempre o meu melhor.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Tu dás presentes no Natal.',
+        wrong: [
+          'Tu dou presentes no Natal.',
+          'Tu dá presentes no Natal.',
+          'Tu deste presentes no Natal.',
+          'Tu davas presentes no Natal.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Ele dá aulas de matemática.',
+        wrong: [
+          'Ele dou aulas de matemática.',
+          'Ele dás aulas de matemática.',
+          'Ele deu aulas de matemática.',
+          'Ele dava aulas de matemática.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Ela dá flores à mãe.',
+        wrong: [
+          'Ela dou flores à mãe.',
+          'Ela dás flores à mãe.',
+          'Ela deu flores à mãe.',
+          'Ela dava flores à mãe.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Você dá conselhos aos amigos?',
+        wrong: [
+          'Você dou conselhos aos amigos?',
+          'Você dás conselhos aos amigos?',
+          'Você deu conselhos aos amigos?',
+          'Você dava conselhos aos amigos?'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Nós damos apoio à equipa.',
+        wrong: [
+          'Nós dão apoio à equipa.',
+          'Nós dei apoio à equipa.',
+          'Nós dávamos apoio à equipa.',
+          'Nós dá apoio à equipa.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Eles dão bom exemplo.',
+        wrong: [
+          'Eles damos bom exemplo.',
+          'Eles deu bom exemplo.',
+          'Eles davam bom exemplo.',
+          'Eles dá bom exemplo.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Elas dão comida aos gatos.',
+        wrong: [
+          'Elas damos comida aos gatos.',
+          'Elas deu comida aos gatos.',
+          'Elas davam comida aos gatos.',
+          'Elas dá comida aos gatos.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Vocês dão sempre uma resposta.',
+        wrong: [
+          'Vocês damos sempre uma resposta.',
+          'Vocês deu sempre uma resposta.',
+          'Vocês davam sempre uma resposta.',
+          'Vocês dá sempre uma resposta.'
+        ]
+      },
+      // DAR - SIMPLE PAST
+      {
+        verb: 'dar',
+        correct: 'Eu dei um presente ao meu amigo.',
+        wrong: [
+          'Eu dou um presente ao meu amigo.',
+          'Eu dava um presente ao meu amigo.',
+          'Eu dás um presente ao meu amigo.',
+          'Eu demos um presente ao meu amigo.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Tu deste uma explicação clara.',
+        wrong: [
+          'Tu dás uma explicação clara.',
+          'Tu dava uma explicação clara.',
+          'Tu deu uma explicação clara.',
+          'Tu demos uma explicação clara.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Ele deu a resposta certa.',
+        wrong: [
+          'Ele dá a resposta certa.',
+          'Ele dava a resposta certa.',
+          'Ele dei a resposta certa.',
+          'Ele demos a resposta certa.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Ela deu um sorriso.',
+        wrong: [
+          'Ela dá um sorriso.',
+          'Ela dava um sorriso.',
+          'Ela dei um sorriso.',
+          'Ela demos um sorriso.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Você deu a notícia?',
+        wrong: [
+          'Você dá a notícia?',
+          'Você dava a notícia?',
+          'Você dei a notícia?',
+          'Você demos a notícia?'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Nós demos parabéns ao vencedor.',
+        wrong: [
+          'Nós damos parabéns ao vencedor.',
+          'Nós dávamos parabéns ao vencedor.',
+          'Nós deu parabéns ao vencedor.',
+          'Nós dei parabéns ao vencedor.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Eles deram uma festa.',
+        wrong: [
+          'Eles dão uma festa.',
+          'Eles dávamos uma festa.',
+          'Eles deu uma festa.',
+          'Eles dei uma festa.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Elas deram flores à professora.',
+        wrong: [
+          'Elas dão flores à professora.',
+          'Elas dávamos flores à professora.',
+          'Elas deu flores à professora.',
+          'Elas dei flores à professora.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Vocês deram a resposta correta?',
+        wrong: [
+          'Vocês dão a resposta correta?',
+          'Vocês dávamos a resposta correta?',
+          'Vocês deu a resposta correta?',
+          'Vocês dei a resposta correta?'
+        ]
+      },
+      // DAR - IMPERFECT PAST
+      {
+        verb: 'dar',
+        correct: 'Eu dava conselhos aos amigos.',
+        wrong: [
+          'Eu dou conselhos aos amigos.',
+          'Eu dei conselhos aos amigos.',
+          'Eu dás conselhos aos amigos.',
+          'Eu dávamos conselhos aos amigos.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Tu davas sempre bom exemplo.',
+        wrong: [
+          'Tu dás sempre bom exemplo.',
+          'Tu dei sempre bom exemplo.',
+          'Tu dava sempre bom exemplo.',
+          'Tu dávamos sempre bom exemplo.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Ele dava aulas à noite.',
+        wrong: [
+          'Ele dá aulas à noite.',
+          'Ele dei aulas à noite.',
+          'Ele dávamos aulas à noite.',
+          'Ele dávamos aulas à noite.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Ela dava comida aos animais.',
+        wrong: [
+          'Ela dá comida aos animais.',
+          'Ela dei comida aos animais.',
+          'Ela dávamos comida aos animais.',
+          'Ela dávamos comida aos animais.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Você dava atenção a todos?',
+        wrong: [
+          'Você dá atenção a todos?',
+          'Você dei atenção a todos?',
+          'Você dávamos atenção a todos?',
+          'Você dávamos atenção a todos?'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Nós dávamos presentes no Natal.',
+        wrong: [
+          'Nós damos presentes no Natal.',
+          'Nós dei presentes no Natal.',
+          'Nós demos presentes no Natal.',
+          'Nós dava presentes no Natal.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Eles davam apoio aos colegas.',
+        wrong: [
+          'Eles dão apoio aos colegas.',
+          'Eles dei apoio aos colegas.',
+          'Eles demos apoio aos colegas.',
+          'Eles dava apoio aos colegas.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Elas davam flores à avó.',
+        wrong: [
+          'Elas dão flores à avó.',
+          'Elas dei flores à avó.',
+          'Elas demos flores à avó.',
+          'Elas dava flores à avó.'
+        ]
+      },
+      {
+        verb: 'dar',
+        correct: 'Vocês davam sempre uma opinião.',
+        wrong: [
+          'Vocês dão sempre uma opinião.',
+          'Vocês dei sempre uma opinião.',
+          'Vocês demos sempre uma opinião.',
+          'Vocês dava sempre uma opinião.'
+        ]
+      },
+      // VER - PRESENT
+      {
+        verb: 'ver',
+        correct: 'Eu vejo televisão à noite.',
+        wrong: [
+          'Eu vês televisão à noite.',
+          'Eu vê televisão à noite.',
+          'Eu vi televisão à noite.',
+          'Eu via televisão à noite.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Tu vês o mar da janela.',
+        wrong: [
+          'Tu vejo o mar da janela.',
+          'Tu vê o mar da janela.',
+          'Tu viste o mar da janela.',
+          'Tu vias o mar da janela.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Ele vê o pôr do sol todos os dias.',
+        wrong: [
+          'Ele vejo o pôr do sol todos os dias.',
+          'Ele vês o pôr do sol todos os dias.',
+          'Ele viu o pôr do sol todos os dias.',
+          'Ele via o pôr do sol todos os dias.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Ela vê filmes ao fim de semana.',
+        wrong: [
+          'Ela vejo filmes ao fim de semana.',
+          'Ela vês filmes ao fim de semana.',
+          'Ela viu filmes ao fim de semana.',
+          'Ela via filmes ao fim de semana.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Você vê as notícias?',
+        wrong: [
+          'Você vejo as notícias?',
+          'Você vês as notícias?',
+          'Você viu as notícias?',
+          'Você via as notícias?'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Nós vemos os amigos ao sábado.',
+        wrong: [
+          'Nós veem os amigos ao sábado.',
+          'Nós vi os amigos ao sábado.',
+          'Nós víamos os amigos ao sábado.',
+          'Nós vê os amigos ao sábado.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Eles veem futebol na televisão.',
+        wrong: [
+          'Eles vemos futebol na televisão.',
+          'Eles viu futebol na televisão.',
+          'Eles viam futebol na televisão.',
+          'Eles vê futebol na televisão.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Elas veem as estrelas à noite.',
+        wrong: [
+          'Elas vemos as estrelas à noite.',
+          'Elas viu as estrelas à noite.',
+          'Elas viam as estrelas à noite.',
+          'Elas vê as estrelas à noite.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Vocês veem o professor na escola?',
+        wrong: [
+          'Vocês vemos o professor na escola?',
+          'Vocês viu o professor na escola?',
+          'Vocês viam o professor na escola?',
+          'Vocês vê o professor na escola?'
+        ]
+      },
+      // VER - SIMPLE PAST
+      {
+        verb: 'ver',
+        correct: 'Eu vi um filme ontem.',
+        wrong: [
+          'Eu vejo um filme ontem.',
+          'Eu via um filme ontem.',
+          'Eu vês um filme ontem.',
+          'Eu vimos um filme ontem.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Tu viste o acidente?',
+        wrong: [
+          'Tu vês o acidente?',
+          'Tu via o acidente?',
+          'Tu viu o acidente?',
+          'Tu vimos o acidente?'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Ele viu o jogo na televisão.',
+        wrong: [
+          'Ele vê o jogo na televisão.',
+          'Ele via o jogo na televisão.',
+          'Ele vi o jogo na televisão.',
+          'Ele vimos o jogo na televisão.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Ela viu o amigo no café.',
+        wrong: [
+          'Ela vê o amigo no café.',
+          'Ela via o amigo no café.',
+          'Ela vi o amigo no café.',
+          'Ela vimos o amigo no café.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Você viu o resultado?',
+        wrong: [
+          'Você vê o resultado?',
+          'Você via o resultado?',
+          'Você vi o resultado?',
+          'Você vimos o resultado?'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Nós vimos a peça de teatro.',
+        wrong: [
+          'Nós vemos a peça de teatro.',
+          'Nós víamos a peça de teatro.',
+          'Nós viu a peça de teatro.',
+          'Nós vi a peça de teatro.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Eles viram o eclipse.',
+        wrong: [
+          'Eles veem o eclipse.',
+          'Eles víamos o eclipse.',
+          'Eles viu o eclipse.',
+          'Eles vi o eclipse.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Elas viram o desfile.',
+        wrong: [
+          'Elas veem o desfile.',
+          'Elas víamos o desfile.',
+          'Elas viu o desfile.',
+          'Elas vi o desfile.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Vocês viram o acidente?',
+        wrong: [
+          'Vocês veem o acidente?',
+          'Vocês víamos o acidente?',
+          'Vocês viu o acidente?',
+          'Vocês vi o acidente?'
+        ]
+      },
+      // VER - IMPERFECT PAST
+      {
+        verb: 'ver',
+        correct: 'Eu via o mar da varanda.',
+        wrong: [
+          'Eu vejo o mar da varanda.',
+          'Eu vi o mar da varanda.',
+          'Eu vês o mar da varanda.',
+          'Eu víamos o mar da varanda.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Tu vias televisão à tarde.',
+        wrong: [
+          'Tu vês televisão à tarde.',
+          'Tu vi televisão à tarde.',
+          'Tu via televisão à tarde.',
+          'Tu víamos televisão à tarde.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Ele via os pais todos os domingos.',
+        wrong: [
+          'Ele vê os pais todos os domingos.',
+          'Ele vi os pais todos os domingos.',
+          'Ele víamos os pais todos os domingos.',
+          'Ele vimos os pais todos os domingos.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Ela via as amigas na escola.',
+        wrong: [
+          'Ela vê as amigas na escola.',
+          'Ela vi as amigas na escola.',
+          'Ela víamos as amigas na escola.',
+          'Ela vimos as amigas na escola.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Você via o pôr do sol?',
+        wrong: [
+          'Você vê o pôr do sol?',
+          'Você vi o pôr do sol?',
+          'Você víamos o pôr do sol?',
+          'Você vimos o pôr do sol?'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Nós víamos filmes antigos.',
+        wrong: [
+          'Nós vemos filmes antigos.',
+          'Nós vi filmes antigos.',
+          'Nós vimos filmes antigos.',
+          'Nós via filmes antigos.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Eles viam desenhos animados.',
+        wrong: [
+          'Eles veem desenhos animados.',
+          'Eles vi desenhos animados.',
+          'Eles vimos desenhos animados.',
+          'Eles via desenhos animados.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Elas viam novelas à noite.',
+        wrong: [
+          'Elas veem novelas à noite.',
+          'Elas vi novelas à noite.',
+          'Elas vimos novelas à noite.',
+          'Elas via novelas à noite.'
+        ]
+      },
+      {
+        verb: 'ver',
+        correct: 'Vocês viam os jogos juntos?',
+        wrong: [
+          'Vocês veem os jogos juntos?',
+          'Vocês vi os jogos juntos?',
+          'Vocês vimos os jogos juntos?',
+          'Vocês via os jogos juntos?'
+        ]
+      },
+      // FAZER - PRESENT
+      {
+        verb: 'fazer',
+        correct: 'Eu faço o jantar todos os dias.',
+        wrong: [
+          'Eu fazes o jantar todos os dias.',
+          'Eu faz o jantar todos os dias.',
+          'Eu fiz o jantar todos os dias.',
+          'Eu fazia o jantar todos os dias.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Tu fazes os trabalhos de casa.',
+        wrong: [
+          'Tu faço os trabalhos de casa.',
+          'Tu faz os trabalhos de casa.',
+          'Tu fizeste os trabalhos de casa.',
+          'Tu fazias os trabalhos de casa.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Ele faz exercício de manhã.',
+        wrong: [
+          'Ele faço exercício de manhã.',
+          'Ele fazes exercício de manhã.',
+          'Ele fez exercício de manhã.',
+          'Ele fazia exercício de manhã.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Ela faz perguntas interessantes.',
+        wrong: [
+          'Ela faço perguntas interessantes.',
+          'Ela fazes perguntas interessantes.',
+          'Ela fez perguntas interessantes.',
+          'Ela fazia perguntas interessantes.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Você faz sempre o melhor?',
+        wrong: [
+          'Você faço sempre o melhor?',
+          'Você fazes sempre o melhor?',
+          'Você fez sempre o melhor?',
+          'Você fazia sempre o melhor?'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Nós fazemos planos para o futuro.',
+        wrong: [
+          'Nós fazem planos para o futuro.',
+          'Nós fizemos planos para o futuro.',
+          'Nós fazíamos planos para o futuro.',
+          'Nós faz planos para o futuro.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Eles fazem barulho na sala.',
+        wrong: [
+          'Eles fazemos barulho na sala.',
+          'Eles fez barulho na sala.',
+          'Eles faziam barulho na sala.',
+          'Eles faz barulho na sala.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Elas fazem bolos deliciosos.',
+        wrong: [
+          'Elas fazemos bolos deliciosos.',
+          'Elas fez bolos deliciosos.',
+          'Elas faziam bolos deliciosos.',
+          'Elas faz bolos deliciosos.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Vocês fazem a festa?',
+        wrong: [
+          'Vocês fazemos a festa?',
+          'Vocês fez a festa?',
+          'Vocês faziam a festa?',
+          'Vocês faz a festa?'
+        ]
+      },
+      // FAZER - SIMPLE PAST
+      {
+        verb: 'fazer',
+        correct: 'Eu fiz um bolo ontem.',
+        wrong: [
+          'Eu faço um bolo ontem.',
+          'Eu fazia um bolo ontem.',
+          'Eu faz um bolo ontem.',
+          'Eu fizeste um bolo ontem.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Tu fizeste o trabalho?',
+        wrong: [
+          'Tu fazes o trabalho?',
+          'Tu fazia o trabalho?',
+          'Tu fez o trabalho?',
+          'Tu fazemos o trabalho?'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Ele fez a chamada.',
+        wrong: [
+          'Ele faz a chamada.',
+          'Ele fazia a chamada.',
+          'Ele fiz a chamada.',
+          'Ele fazemos a chamada.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Ela fez a mala para viajar.',
+        wrong: [
+          'Ela faz a mala para viajar.',
+          'Ela fazia a mala para viajar.',
+          'Ela fiz a mala para viajar.',
+          'Ela fazemos a mala para viajar.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Você fez o exame?',
+        wrong: [
+          'Você faz o exame?',
+          'Você fazia o exame?',
+          'Você fiz o exame?',
+          'Você fazemos o exame?'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Nós fizemos uma viagem incrível.',
+        wrong: [
+          'Nós fazemos uma viagem incrível.',
+          'Nós fazíamos uma viagem incrível.',
+          'Nós fez uma viagem incrível.',
+          'Nós fiz uma viagem incrível.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Eles fizeram a apresentação.',
+        wrong: [
+          'Eles fazem a apresentação.',
+          'Eles faziam a apresentação.',
+          'Eles fez a apresentação.',
+          'Eles fiz a apresentação.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Elas fizeram o cartaz.',
+        wrong: [
+          'Elas fazem o cartaz.',
+          'Elas faziam o cartaz.',
+          'Elas fez o cartaz.',
+          'Elas fiz o cartaz.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Vocês fizeram o jantar?',
+        wrong: [
+          'Vocês fazem o jantar?',
+          'Vocês faziam o jantar?',
+          'Vocês fez o jantar?',
+          'Vocês fiz o jantar?'
+        ]
+      },
+      // FAZER - IMPERFECT PAST
+      {
+        verb: 'fazer',
+        correct: 'Eu fazia caminhadas todos os dias.',
+        wrong: [
+          'Eu faço caminhadas todos os dias.',
+          'Eu fiz caminhadas todos os dias.',
+          'Eu faz caminhadas todos os dias.',
+          'Eu fazias caminhadas todos os dias.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Tu fazias perguntas difíceis.',
+        wrong: [
+          'Tu fazes perguntas difíceis.',
+          'Tu fiz perguntas difíceis.',
+          'Tu fazia perguntas difíceis.',
+          'Tu fazíamos perguntas difíceis.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Ele fazia parte da equipa.',
+        wrong: [
+          'Ele faz parte da equipa.',
+          'Ele fiz parte da equipa.',
+          'Ele fazíamos parte da equipa.',
+          'Ele fizemos parte da equipa.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Ela fazia bolos para vender.',
+        wrong: [
+          'Ela faz bolos para vender.',
+          'Ela fiz bolos para vender.',
+          'Ela fazíamos bolos para vender.',
+          'Ela fizemos bolos para vender.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Você fazia sempre o mesmo caminho?',
+        wrong: [
+          'Você faz sempre o mesmo caminho?',
+          'Você fiz sempre o mesmo caminho?',
+          'Você fazíamos sempre o mesmo caminho?',
+          'Você fizemos sempre o mesmo caminho?'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Nós fazíamos festas grandes.',
+        wrong: [
+          'Nós fazemos festas grandes.',
+          'Nós fiz festas grandes.',
+          'Nós fizemos festas grandes.',
+          'Nós fazia festas grandes.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Eles faziam barulho na rua.',
+        wrong: [
+          'Eles fazem barulho na rua.',
+          'Eles fiz barulho na rua.',
+          'Eles fizemos barulho na rua.',
+          'Eles fazia barulho na rua.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Elas faziam desenhos bonitos.',
+        wrong: [
+          'Elas fazem desenhos bonitos.',
+          'Elas fiz desenhos bonitos.',
+          'Elas fizemos desenhos bonitos.',
+          'Elas fazia desenhos bonitos.'
+        ]
+      },
+      {
+        verb: 'fazer',
+        correct: 'Vocês faziam sempre o mesmo?',
+        wrong: [
+          'Vocês fazem sempre o mesmo?',
+          'Vocês fiz sempre o mesmo?',
+          'Vocês fizemos sempre o mesmo?',
+          'Vocês fazia sempre o mesmo?'
+        ]
+      },
+      // VIR - PRESENT
+      {
+        verb: 'vir',
+        correct: 'Eu venho cedo para o trabalho.',
+        wrong: [
+          'Eu vens cedo para o trabalho.',
+          'Eu vem cedo para o trabalho.',
+          'Eu vim cedo para o trabalho.',
+          'Eu vinha cedo para o trabalho.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Tu vens sempre à festa.',
+        wrong: [
+          'Tu venho sempre à festa.',
+          'Tu vem sempre à festa.',
+          'Tu vieste sempre à festa.',
+          'Tu vinhas sempre à festa.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Ele vem de bicicleta para a escola.',
+        wrong: [
+          'Ele venho de bicicleta para a escola.',
+          'Ele vens de bicicleta para a escola.',
+          'Ele veio de bicicleta para a escola.',
+          'Ele vinha de bicicleta para a escola.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Ela vem visitar-nos ao domingo.',
+        wrong: [
+          'Ela venho visitar-nos ao domingo.',
+          'Ela vens visitar-nos ao domingo.',
+          'Ela veio visitar-nos ao domingo.',
+          'Ela vinha visitar-nos ao domingo.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Você vem ao escritório?',
+        wrong: [
+          'Você venho ao escritório?',
+          'Você vens ao escritório?',
+          'Você veio ao escritório?',
+          'Você vinha ao escritório?'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Nós vimos juntos ao concerto.',
+        wrong: [
+          'Nós vêm juntos ao concerto.',
+          'Nós viemos juntos ao concerto.',
+          'Nós vínhamos juntos ao concerto.',
+          'Nós vem juntos ao concerto.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Eles vêm de carro para a reunião.',
+        wrong: [
+          'Eles vimos de carro para a reunião.',
+          'Eles veio de carro para a reunião.',
+          'Eles vinham de carro para a reunião.',
+          'Eles vem de carro para a reunião.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Elas vêm ao parque todos os dias.',
+        wrong: [
+          'Elas vimos ao parque todos os dias.',
+          'Elas veio ao parque todos os dias.',
+          'Elas vinham ao parque todos os dias.',
+          'Elas vem ao parque todos os dias.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Vocês vêm jantar connosco?',
+        wrong: [
+          'Vocês vimos jantar connosco?',
+          'Vocês veio jantar connosco?',
+          'Vocês vinham jantar connosco?',
+          'Vocês vem jantar connosco?'
+        ]
+      },
+      // VIR - SIMPLE PAST
+      {
+        verb: 'vir',
+        correct: 'Eu vim a pé para casa.',
+        wrong: [
+          'Eu venho a pé para casa.',
+          'Eu vinha a pé para casa.',
+          'Eu vens a pé para casa.',
+          'Eu vieste a pé para casa.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Tu vieste ao cinema ontem?',
+        wrong: [
+          'Tu vens ao cinema ontem?',
+          'Tu vinha ao cinema ontem?',
+          'Tu veio ao cinema ontem?',
+          'Tu vimos ao cinema ontem?'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Ele veio de Lisboa.',
+        wrong: [
+          'Ele vem de Lisboa.',
+          'Ele vinha de Lisboa.',
+          'Ele vim de Lisboa.',
+          'Ele vimos de Lisboa.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Ela veio de autocarro.',
+        wrong: [
+          'Ela vem de autocarro.',
+          'Ela vinha de autocarro.',
+          'Ela vim de autocarro.',
+          'Ela vimos de autocarro.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Você veio ao evento?',
+        wrong: [
+          'Você vem ao evento?',
+          'Você vinha ao evento?',
+          'Você vim ao evento?',
+          'Você vimos ao evento?'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Nós viemos de comboio.',
+        wrong: [
+          'Nós vimos de comboio.',
+          'Nós vínhamos de comboio.',
+          'Nós veio de comboio.',
+          'Nós vim de comboio.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Eles vieram cedo para a aula.',
+        wrong: [
+          'Eles vêm cedo para a aula.',
+          'Eles vinham cedo para a aula.',
+          'Eles veio cedo para a aula.',
+          'Eles vim cedo para a aula.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Elas vieram de longe.',
+        wrong: [
+          'Elas vêm de longe.',
+          'Elas vinham de longe.',
+          'Elas veio de longe.',
+          'Elas vim de longe.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Vocês vieram juntos?',
+        wrong: [
+          'Vocês vêm juntos?',
+          'Vocês vinham juntos?',
+          'Vocês veio juntos?',
+          'Vocês vim juntos?'
+        ]
+      },
+      // VIR - IMPERFECT PAST
+      {
+        verb: 'vir',
+        correct: 'Eu vinha sempre a este café.',
+        wrong: [
+          'Eu venho sempre a este café.',
+          'Eu vim sempre a este café.',
+          'Eu vens sempre a este café.',
+          'Eu vínhamos sempre a este café.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Tu vinhas a pé para a escola.',
+        wrong: [
+          'Tu vens a pé para a escola.',
+          'Tu vim a pé para a escola.',
+          'Tu vinha a pé para a escola.',
+          'Tu vínhamos a pé para a escola.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Ele vinha de autocarro todos os dias.',
+        wrong: [
+          'Ele vem de autocarro todos os dias.',
+          'Ele vim de autocarro todos os dias.',
+          'Ele vínhamos de autocarro todos os dias.',
+          'Ele viemos de autocarro todos os dias.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Ela vinha visitar a avó.',
+        wrong: [
+          'Ela vem visitar a avó.',
+          'Ela vim visitar a avó.',
+          'Ela vínhamos visitar a avó.',
+          'Ela viemos visitar a avó.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Você vinha cá muitas vezes?',
+        wrong: [
+          'Você vem cá muitas vezes?',
+          'Você vim cá muitas vezes?',
+          'Você vínhamos cá muitas vezes?',
+          'Você viemos cá muitas vezes?'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Nós vínhamos juntos para a escola.',
+        wrong: [
+          'Nós vimos juntos para a escola.',
+          'Nós vim juntos para a escola.',
+          'Nós viemos juntos para a escola.',
+          'Nós vinha juntos para a escola.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Eles vinham de longe.',
+        wrong: [
+          'Eles vêm de longe.',
+          'Eles vim de longe.',
+          'Eles viemos de longe.',
+          'Eles vinha de longe.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Elas vinham ao parque ao fim de semana.',
+        wrong: [
+          'Elas vêm ao parque ao fim de semana.',
+          'Elas vim ao parque ao fim de semana.',
+          'Elas viemos ao parque ao fim de semana.',
+          'Elas vinha ao parque ao fim de semana.'
+        ]
+      },
+      {
+        verb: 'vir',
+        correct: 'Vocês vinham de autocarro?',
+        wrong: [
+          'Vocês vêm de autocarro?',
+          'Vocês vim de autocarro?',
+          'Vocês viemos de autocarro?',
+          'Vocês vinha de autocarro?'
+        ]
+      },
+      // PÔR - PRESENT
+      {
+        verb: 'pôr',
+        correct: 'Eu ponho o livro na mesa.',
+        wrong: [
+          'Eu pões o livro na mesa.',
+          'Eu põe o livro na mesa.',
+          'Eu pus o livro na mesa.',
+          'Eu punha o livro na mesa.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Tu pões açúcar no café.',
+        wrong: [
+          'Tu ponho açúcar no café.',
+          'Tu põe açúcar no café.',
+          'Tu puseste açúcar no café.',
+          'Tu punhas açúcar no café.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Ele põe o casaco antes de sair.',
+        wrong: [
+          'Ele ponho o casaco antes de sair.',
+          'Ele pões o casaco antes de sair.',
+          'Ele pôs o casaco antes de sair.',
+          'Ele punha o casaco antes de sair.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Ela põe flores na jarra.',
+        wrong: [
+          'Ela ponho flores na jarra.',
+          'Ela pões flores na jarra.',
+          'Ela pôs flores na jarra.',
+          'Ela punha flores na jarra.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Você põe o chapéu?',
+        wrong: [
+          'Você ponho o chapéu?',
+          'Você pões o chapéu?',
+          'Você pôs o chapéu?',
+          'Você punha o chapéu?'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Nós pomos a mesa para o jantar.',
+        wrong: [
+          'Nós põem a mesa para o jantar.',
+          'Nós pusemos a mesa para o jantar.',
+          'Nós púnhamos a mesa para o jantar.',
+          'Nós põe a mesa para o jantar.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Eles põem música alta.',
+        wrong: [
+          'Eles pomos música alta.',
+          'Eles pôs música alta.',
+          'Eles punham música alta.',
+          'Eles põe música alta.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Elas põem os sapatos na entrada.',
+        wrong: [
+          'Elas pomos os sapatos na entrada.',
+          'Elas pôs os sapatos na entrada.',
+          'Elas punham os sapatos na entrada.',
+          'Elas põe os sapatos na entrada.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Vocês põem o lixo fora?',
+        wrong: [
+          'Vocês pomos o lixo fora?',
+          'Vocês pôs o lixo fora?',
+          'Vocês punham o lixo fora?',
+          'Vocês põe o lixo fora?'
+        ]
+      },
+      // PÔR - SIMPLE PAST
+      {
+        verb: 'pôr',
+        correct: 'Eu pus a chave na porta.',
+        wrong: [
+          'Eu ponho a chave na porta.',
+          'Eu punha a chave na porta.',
+          'Eu pões a chave na porta.',
+          'Eu puseste a chave na porta.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Tu puseste o casaco?',
+        wrong: [
+          'Tu pões o casaco?',
+          'Tu punhas o casaco?',
+          'Tu pôs o casaco?',
+          'Tu pusemos o casaco?'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Ele pôs o telemóvel na mochila.',
+        wrong: [
+          'Ele põe o telemóvel na mochila.',
+          'Ele punha o telemóvel na mochila.',
+          'Ele pus o telemóvel na mochila.',
+          'Ele pusemos o telemóvel na mochila.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Ela pôs o casaco na cadeira.',
+        wrong: [
+          'Ela põe o casaco na cadeira.',
+          'Ela punha o casaco na cadeira.',
+          'Ela pus o casaco na cadeira.',
+          'Ela pusemos o casaco na cadeira.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Você pôs açúcar no chá?',
+        wrong: [
+          'Você põe açúcar no chá?',
+          'Você punha açúcar no chá?',
+          'Você pus açúcar no chá?',
+          'Você pusemos açúcar no chá?'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Nós pusemos as malas no carro.',
+        wrong: [
+          'Nós pomos as malas no carro.',
+          'Nós púnhamos as malas no carro.',
+          'Nós pôs as malas no carro.',
+          'Nós pus as malas no carro.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Eles puseram os livros na estante.',
+        wrong: [
+          'Eles põem os livros na estante.',
+          'Eles punham os livros na estante.',
+          'Eles pôs os livros na estante.',
+          'Eles pus os livros na estante.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Elas puseram a mesa.',
+        wrong: [
+          'Elas põem a mesa.',
+          'Elas punham a mesa.',
+          'Elas pôs a mesa.',
+          'Elas pus a mesa.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Vocês puseram o quadro na parede?',
+        wrong: [
+          'Vocês põem o quadro na parede?',
+          'Vocês punham o quadro na parede?',
+          'Vocês pôs o quadro na parede?',
+          'Vocês pus o quadro na parede?'
+        ]
+      },
+      // PÔR - IMPERFECT PAST
+      {
+        verb: 'pôr',
+        correct: 'Eu punha sempre açúcar no café.',
+        wrong: [
+          'Eu ponho sempre açúcar no café.',
+          'Eu pus sempre açúcar no café.',
+          'Eu pões sempre açúcar no café.',
+          'Eu púnhamos sempre açúcar no café.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Tu punhas o casaco antes de sair.',
+        wrong: [
+          'Tu pões o casaco antes de sair.',
+          'Tu pus o casaco antes de sair.',
+          'Tu punha o casaco antes de sair.',
+          'Tu púnhamos o casaco antes de sair.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Ele punha o despertador para as sete.',
+        wrong: [
+          'Ele põe o despertador para as sete.',
+          'Ele pus o despertador para as sete.',
+          'Ele púnhamos o despertador para as sete.',
+          'Ele pusemos o despertador para as sete.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Ela punha flores na janela.',
+        wrong: [
+          'Ela põe flores na janela.',
+          'Ela pus flores na janela.',
+          'Ela púnhamos flores na janela.',
+          'Ela pusemos flores na janela.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Você punha o casaco no cabide?',
+        wrong: [
+          'Você põe o casaco no cabide?',
+          'Você pus o casaco no cabide?',
+          'Você púnhamos o casaco no cabide?',
+          'Você pusemos o casaco no cabide?'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Nós púnhamos música para dançar.',
+        wrong: [
+          'Nós pomos música para dançar.',
+          'Nós pus música para dançar.',
+          'Nós pusemos música para dançar.',
+          'Nós punha música para dançar.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Eles punham os sapatos na entrada.',
+        wrong: [
+          'Eles põem os sapatos na entrada.',
+          'Eles pus os sapatos na entrada.',
+          'Eles pusemos os sapatos na entrada.',
+          'Eles punha os sapatos na entrada.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Elas punham a mesa para o jantar.',
+        wrong: [
+          'Elas põem a mesa para o jantar.',
+          'Elas pus a mesa para o jantar.',
+          'Elas pusemos a mesa para o jantar.',
+          'Elas punha a mesa para o jantar.'
+        ]
+      },
+      {
+        verb: 'pôr',
+        correct: 'Vocês punham os livros na mochila?',
+        wrong: [
+          'Vocês põem os livros na mochila?',
+          'Vocês pus os livros na mochila?',
+          'Vocês pusemos os livros na mochila?',
+          'Vocês punha os livros na mochila?'
+        ]
+      },
+      // PODER - PRESENT
+      {
+        verb: 'poder',
+        correct: 'Eu posso sair mais cedo hoje.',
+        wrong: [
+          'Eu podes sair mais cedo hoje.',
+          'Eu pode sair mais cedo hoje.',
+          'Eu pude sair mais cedo hoje.',
+          'Eu podia sair mais cedo hoje.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Tu podes ajudar-me com isto?',
+        wrong: [
+          'Tu posso ajudar-me com isto?',
+          'Tu pode ajudar-me com isto?',
+          'Tu pudeste ajudar-me com isto?',
+          'Tu podias ajudar-me com isto.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Ele pode vir à reunião.',
+        wrong: [
+          'Ele posso vir à reunião.',
+          'Ele podes vir à reunião.',
+          'Ele pôde vir à reunião.',
+          'Ele podia vir à reunião.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Ela pode ligar mais tarde.',
+        wrong: [
+          'Ela posso ligar mais tarde.',
+          'Ela podes ligar mais tarde.',
+          'Ela pôde ligar mais tarde.',
+          'Ela podia ligar mais tarde.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Você pode repetir, por favor?',
+        wrong: [
+          'Você posso repetir, por favor?',
+          'Você podes repetir, por favor?',
+          'Você pôde repetir, por favor?',
+          'Você podia repetir, por favor?'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Nós podemos começar agora.',
+        wrong: [
+          'Nós podem começar agora.',
+          'Nós pudemos começar agora.',
+          'Nós podíamos começar agora.',
+          'Nós pode começar agora.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Eles podem entrar na sala.',
+        wrong: [
+          'Eles podemos entrar na sala.',
+          'Eles pôde entrar na sala.',
+          'Eles podiam entrar na sala.',
+          'Eles pode entrar na sala.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Elas podem sair agora.',
+        wrong: [
+          'Elas podemos sair agora.',
+          'Elas pôde sair agora.',
+          'Elas podiam sair agora.',
+          'Elas pode sair agora.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Vocês podem falar mais baixo?',
+        wrong: [
+          'Vocês podemos falar mais baixo?',
+          'Vocês pôde falar mais baixo?',
+          'Vocês podiam falar mais baixo?',
+          'Vocês pode falar mais baixo?'
+        ]
+      },
+      // PODER - SIMPLE PAST
+      {
+        verb: 'poder',
+        correct: 'Eu pude resolver o problema.',
+        wrong: [
+          'Eu posso resolver o problema.',
+          'Eu podia resolver o problema.',
+          'Eu podes resolver o problema.',
+          'Eu pudeste resolver o problema.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Tu pudeste terminar o trabalho?',
+        wrong: [
+          'Tu podes terminar o trabalho?',
+          'Tu podia terminar o trabalho?',
+          'Tu pôde terminar o trabalho?',
+          'Tu pudemos terminar o trabalho?'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Ele pôde sair mais cedo.',
+        wrong: [
+          'Ele pode sair mais cedo.',
+          'Ele podia sair mais cedo.',
+          'Ele pude sair mais cedo.',
+          'Ele pudemos sair mais cedo.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Ela pôde viajar sozinha.',
+        wrong: [
+          'Ela pode viajar sozinha.',
+          'Ela podia viajar sozinha.',
+          'Ela pude viajar sozinha.',
+          'Ela pudemos viajar sozinha.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Você pôde ver o filme?',
+        wrong: [
+          'Você pode ver o filme?',
+          'Você podia ver o filme?',
+          'Você pude ver o filme?',
+          'Você pudemos ver o filme?'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Nós pudemos entrar na sala.',
+        wrong: [
+          'Nós podemos entrar na sala.',
+          'Nós podíamos entrar na sala.',
+          'Nós pôde entrar na sala.',
+          'Nós pude entrar na sala.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Eles puderam sair cedo.',
+        wrong: [
+          'Eles podem sair cedo.',
+          'Eles podiam sair cedo.',
+          'Eles pôde sair cedo.',
+          'Eles pude sair cedo.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Elas puderam resolver tudo.',
+        wrong: [
+          'Elas podem resolver tudo.',
+          'Elas podiam resolver tudo.',
+          'Elas pôde resolver tudo.',
+          'Elas pude resolver tudo.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Vocês puderam assistir ao concerto?',
+        wrong: [
+          'Vocês podem assistir ao concerto?',
+          'Vocês podiam assistir ao concerto?',
+          'Vocês pôde assistir ao concerto?',
+          'Vocês pude assistir ao concerto?'
+        ]
+      },
+      // PODER - IMPERFECT PAST
+      {
+        verb: 'poder',
+        correct: 'Eu podia correr mais rápido.',
+        wrong: [
+          'Eu posso correr mais rápido.',
+          'Eu pude correr mais rápido.',
+          'Eu podes correr mais rápido.',
+          'Eu podíamos correr mais rápido.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Tu podias estudar à noite.',
+        wrong: [
+          'Tu podes estudar à noite.',
+          'Tu pude estudar à noite.',
+          'Tu podia estudar à noite.',
+          'Tu podíamos estudar à noite.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Ele podia viajar sozinho.',
+        wrong: [
+          'Ele pode viajar sozinho.',
+          'Ele pude viajar sozinho.',
+          'Ele podíamos viajar sozinho.',
+          'Ele pudemos viajar sozinho.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Ela podia sair à noite.',
+        wrong: [
+          'Ela pode sair à noite.',
+          'Ela pude sair à noite.',
+          'Ela podíamos sair à noite.',
+          'Ela pudemos sair à noite.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Você podia falar inglês?',
+        wrong: [
+          'Você pode falar inglês?',
+          'Você pude falar inglês?',
+          'Você podíamos falar inglês?',
+          'Você pudemos falar inglês?'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Nós podíamos viajar juntos.',
+        wrong: [
+          'Nós podemos viajar juntos.',
+          'Nós pude viajar juntos.',
+          'Nós pudemos viajar juntos.',
+          'Nós podia viajar juntos.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Eles podiam sair à tarde.',
+        wrong: [
+          'Eles podem sair à tarde.',
+          'Eles pude sair à tarde.',
+          'Eles pudemos sair à tarde.',
+          'Eles podia sair à tarde.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Elas podiam ver televisão.',
+        wrong: [
+          'Elas podem ver televisão.',
+          'Elas pude ver televisão.',
+          'Elas pudemos ver televisão.',
+          'Elas podia ver televisão.'
+        ]
+      },
+      {
+        verb: 'poder',
+        correct: 'Vocês podiam chegar mais cedo?',
+        wrong: [
+          'Vocês podem chegar mais cedo?',
+          'Vocês pude chegar mais cedo?',
+          'Vocês pudemos chegar mais cedo?',
+          'Vocês podia chegar mais cedo?'
+        ]
+      },
+      // TRAZER - PRESENT
+      {
+        verb: 'trazer',
+        correct: 'Eu trago o almoço para o trabalho.',
+        wrong: [
+          'Eu trazes o almoço para o trabalho.',
+          'Eu traz o almoço para o trabalho.',
+          'Eu trouxe o almoço para o trabalho.',
+          'Eu trazia o almoço para o trabalho.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Tu trazes o livro para a aula.',
+        wrong: [
+          'Tu trago o livro para a aula.',
+          'Tu traz o livro para a aula.',
+          'Tu trouxeste o livro para a aula.',
+          'Tu trazias o livro para a aula.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Ele traz flores para a mãe.',
+        wrong: [
+          'Ele trago flores para a mãe.',
+          'Ele trazes flores para a mãe.',
+          'Ele trouxe flores para a mãe.',
+          'Ele trazia flores para a mãe.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Ela traz notícias boas.',
+        wrong: [
+          'Ela trago notícias boas.',
+          'Ela trazes notícias boas.',
+          'Ela trouxe notícias boas.',
+          'Ela trazia notícias boas.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Você traz sempre alegria?',
+        wrong: [
+          'Você trago sempre alegria?',
+          'Você trazes sempre alegria?',
+          'Você trouxe sempre alegria?',
+          'Você trazia sempre alegria?'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Nós trazemos comida para a festa.',
+        wrong: [
+          'Nós trazem comida para a festa.',
+          'Nós trouxemos comida para a festa.',
+          'Nós trazíamos comida para a festa.',
+          'Nós traz comida para a festa.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Eles trazem presentes para as crianças.',
+        wrong: [
+          'Eles trazemos presentes para as crianças.',
+          'Eles trouxe presentes para as crianças.',
+          'Eles traziam presentes para as crianças.',
+          'Eles traz presentes para as crianças.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Elas trazem bolos para o lanche.',
+        wrong: [
+          'Elas trazemos bolos para o lanche.',
+          'Elas trouxe bolos para o lanche.',
+          'Elas traziam bolos para o lanche.',
+          'Elas traz bolos para o lanche.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Vocês trazem os documentos?',
+        wrong: [
+          'Vocês trazemos os documentos?',
+          'Vocês trouxe os documentos?',
+          'Vocês traziam os documentos?',
+          'Vocês traz os documentos?'
+        ]
+      },
+      // TRAZER - SIMPLE PAST
+      {
+        verb: 'trazer',
+        correct: 'Eu trouxe o bolo para a festa.',
+        wrong: [
+          'Eu trago o bolo para a festa.',
+          'Eu trazia o bolo para a festa.',
+          'Eu traz o bolo para a festa.',
+          'Eu trouxeste o bolo para a festa.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Tu trouxeste o presente?',
+        wrong: [
+          'Tu trazes o presente?',
+          'Tu trazia o presente?',
+          'Tu trouxe o presente?',
+          'Tu trouxemos o presente?'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Ele trouxe a carta.',
+        wrong: [
+          'Ele traz a carta.',
+          'Ele trazia a carta.',
+          'Ele trouxe a carta.',
+          'Ele trouxemos a carta.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Ela trouxe flores para a professora.',
+        wrong: [
+          'Ela traz flores para a professora.',
+          'Ela trazia flores para a professora.',
+          'Ela trouxe flores para a professora.',
+          'Ela trouxemos flores para a professora.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Você trouxe o documento?',
+        wrong: [
+          'Você traz o documento?',
+          'Você trazia o documento?',
+          'Você trouxe o documento?',
+          'Você trouxemos o documento?'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Nós trouxemos comida para todos.',
+        wrong: [
+          'Nós trazemos comida para todos.',
+          'Nós trazíamos comida para todos.',
+          'Nós trouxe comida para todos.',
+          'Nós trouxe comida para todos.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Eles trouxeram os livros.',
+        wrong: [
+          'Eles trazem os livros.',
+          'Eles traziam os livros.',
+          'Eles trouxe os livros.',
+          'Eles trouxe os livros.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Elas trouxeram doces para a festa.',
+        wrong: [
+          'Elas trazem doces para a festa.',
+          'Elas traziam doces para a festa.',
+          'Elas trouxe doces para a festa.',
+          'Elas trouxe doces para a festa.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Vocês trouxeram as bebidas?',
+        wrong: [
+          'Vocês trazem as bebidas?',
+          'Vocês traziam as bebidas?',
+          'Vocês trouxe as bebidas?',
+          'Vocês trouxe as bebidas?'
+        ]
+      },
+      // TRAZER - IMPERFECT PAST
+      {
+        verb: 'trazer',
+        correct: 'Eu trazia sempre fruta para o lanche.',
+        wrong: [
+          'Eu trago sempre fruta para o lanche.',
+          'Eu trouxe sempre fruta para o lanche.',
+          'Eu traz sempre fruta para o lanche.',
+          'Eu trazíamos sempre fruta para o lanche.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Tu trazias o jornal para casa.',
+        wrong: [
+          'Tu trazes o jornal para casa.',
+          'Tu trouxe o jornal para casa.',
+          'Tu trazia o jornal para casa.',
+          'Tu trazíamos o jornal para casa.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Ele trazia flores para a esposa.',
+        wrong: [
+          'Ele traz flores para a esposa.',
+          'Ele trouxe flores para a esposa.',
+          'Ele trazíamos flores para a esposa.',
+          'Ele trouxemos flores para a esposa.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Ela trazia presentes para os netos.',
+        wrong: [
+          'Ela traz presentes para os netos.',
+          'Ela trouxe presentes para os netos.',
+          'Ela trazíamos presentes para os netos.',
+          'Ela trouxemos presentes para os netos.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Você trazia sempre um sorriso?',
+        wrong: [
+          'Você traz sempre um sorriso?',
+          'Você trouxe sempre um sorriso?',
+          'Você trazíamos sempre um sorriso?',
+          'Você trouxemos sempre um sorriso?'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Nós trazíamos comida para partilhar.',
+        wrong: [
+          'Nós trazemos comida para partilhar.',
+          'Nós trouxe comida para partilhar.',
+          'Nós trouxemos comida para partilhar.',
+          'Nós trazia comida para partilhar.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Eles traziam brinquedos para a escola.',
+        wrong: [
+          'Eles trazem brinquedos para a escola.',
+          'Eles trouxe brinquedos para a escola.',
+          'Eles trouxemos brinquedos para a escola.',
+          'Eles trazia brinquedos para a escola.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Elas traziam revistas para ler.',
+        wrong: [
+          'Elas trazem revistas para ler.',
+          'Elas trouxe revistas para ler.',
+          'Elas trouxemos revistas para ler.',
+          'Elas trazia revistas para ler.'
+        ]
+      },
+      {
+        verb: 'trazer',
+        correct: 'Vocês traziam sempre algo novo?',
+        wrong: [
+          'Vocês trazem sempre algo novo?',
+          'Vocês trouxe sempre algo novo?',
+          'Vocês trouxemos sempre algo novo?',
+          'Vocês trazia sempre algo novo?'
+        ]
+      },
+      // SAIR - PRESENT
+      {
+        verb: 'sair',
+        correct: 'Eu saio de casa às oito.',
+        wrong: [
+          'Eu sais de casa às oito.',
+          'Eu sai de casa às oito.',
+          'Eu saí de casa às oito.',
+          'Eu saía de casa às oito.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Tu sais cedo ao fim de semana.',
+        wrong: [
+          'Tu saio cedo ao fim de semana.',
+          'Tu sai cedo ao fim de semana.',
+          'Tu saíste cedo ao fim de semana.',
+          'Tu saías cedo ao fim de semana.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Ele sai do trabalho às seis.',
+        wrong: [
+          'Ele saio do trabalho às seis.',
+          'Ele sais do trabalho às seis.',
+          'Ele saiu do trabalho às seis.',
+          'Ele saía do trabalho às seis.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Ela sai para passear todos os dias.',
+        wrong: [
+          'Ela saio para passear todos os dias.',
+          'Ela sais para passear todos os dias.',
+          'Ela saiu para passear todos os dias.',
+          'Ela saía para passear todos os dias.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Você sai à noite?',
+        wrong: [
+          'Você saio à noite?',
+          'Você sais à noite?',
+          'Você saiu à noite?',
+          'Você saía à noite?'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Nós saímos juntos ao sábado.',
+        wrong: [
+          'Nós saem juntos ao sábado.',
+          'Nós saímos juntos ao sábado.',
+          'Nós saíamos juntos ao sábado.',
+          'Nós sai juntos ao sábado.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Eles saem do autocarro na próxima paragem.',
+        wrong: [
+          'Eles saímos do autocarro na próxima paragem.',
+          'Eles saiu do autocarro na próxima paragem.',
+          'Eles saíam do autocarro na próxima paragem.',
+          'Eles sai do autocarro na próxima paragem.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Elas saem para dançar.',
+        wrong: [
+          'Elas saímos para dançar.',
+          'Elas saiu para dançar.',
+          'Elas saíam para dançar.',
+          'Elas sai para dançar.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Vocês saem cedo de manhã?',
+        wrong: [
+          'Vocês saímos cedo de manhã?',
+          'Vocês saiu cedo de manhã?',
+          'Vocês saíam cedo de manhã?',
+          'Vocês sai cedo de manhã?'
+        ]
+      },
+      // SAIR - SIMPLE PAST
+      {
+        verb: 'sair',
+        correct: 'Eu saí de casa ontem.',
+        wrong: [
+          'Eu saio de casa ontem.',
+          'Eu saía de casa ontem.',
+          'Eu sais de casa ontem.',
+          'Eu saíste de casa ontem.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Tu saíste da escola às cinco?',
+        wrong: [
+          'Tu sais da escola às cinco?',
+          'Tu saía da escola às cinco?',
+          'Tu saiu da escola às cinco?',
+          'Tu saímos da escola às cinco?'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Ele saiu do cinema tarde.',
+        wrong: [
+          'Ele sai do cinema tarde.',
+          'Ele saía do cinema tarde.',
+          'Ele saí do cinema tarde.',
+          'Ele saímos do cinema tarde.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Ela saiu do escritório às sete.',
+        wrong: [
+          'Ela sai do escritório às sete.',
+          'Ela saía do escritório às sete.',
+          'Ela saí do escritório às sete.',
+          'Ela saímos do escritório às sete.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Você saiu ontem à noite?',
+        wrong: [
+          'Você sai ontem à noite?',
+          'Você saía ontem à noite?',
+          'Você saí ontem à noite?',
+          'Você saímos ontem à noite?'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Nós saímos juntos da festa.',
+        wrong: [
+          'Nós saímos juntos da festa.',
+          'Nós saíamos juntos da festa.',
+          'Nós saiu juntos da festa.',
+          'Nós saí juntos da festa.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Eles saíram cedo do trabalho.',
+        wrong: [
+          'Eles saem cedo do trabalho.',
+          'Eles saíam cedo do trabalho.',
+          'Eles saiu cedo do trabalho.',
+          'Eles saí cedo do trabalho.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Elas saíram para jantar.',
+        wrong: [
+          'Elas saem para jantar.',
+          'Elas saíam para jantar.',
+          'Elas saiu para jantar.',
+          'Elas saí para jantar.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Vocês saíram juntos?',
+        wrong: [
+          'Vocês saem juntos?',
+          'Vocês saíam juntos?',
+          'Vocês saiu juntos?',
+          'Vocês saí juntos?'
+        ]
+      },
+      // SAIR - IMPERFECT PAST
+      {
+        verb: 'sair',
+        correct: 'Eu saía sempre ao domingo.',
+        wrong: [
+          'Eu saio sempre ao domingo.',
+          'Eu saí sempre ao domingo.',
+          'Eu sais sempre ao domingo.',
+          'Eu saíamos sempre ao domingo.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Tu saías de casa cedo.',
+        wrong: [
+          'Tu sais de casa cedo.',
+          'Tu saí de casa cedo.',
+          'Tu saía de casa cedo.',
+          'Tu saíamos de casa cedo.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Ele saía do escritório tarde.',
+        wrong: [
+          'Ele sai do escritório tarde.',
+          'Ele saí do escritório tarde.',
+          'Ele saíamos do escritório tarde.',
+          'Ele saímos do escritório tarde.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Ela saía para passear à tarde.',
+        wrong: [
+          'Ela sai para passear à tarde.',
+          'Ela saí para passear à tarde.',
+          'Ela saíamos para passear à tarde.',
+          'Ela saímos para passear à tarde.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Você saía muito?',
+        wrong: [
+          'Você sai muito?',
+          'Você saí muito?',
+          'Você saíamos muito?',
+          'Você saímos muito?'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Nós saíamos juntos ao sábado.',
+        wrong: [
+          'Nós saímos juntos ao sábado.',
+          'Nós saí juntos ao sábado.',
+          'Nós saiu juntos ao sábado.',
+          'Nós saía juntos ao sábado.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Eles saíam para jogar futebol.',
+        wrong: [
+          'Eles saem para jogar futebol.',
+          'Eles saí para jogar futebol.',
+          'Eles saímos para jogar futebol.',
+          'Eles saía para jogar futebol.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Elas saíam para conversar.',
+        wrong: [
+          'Elas saem para conversar.',
+          'Elas saí para conversar.',
+          'Elas saímos para conversar.',
+          'Elas saía para conversar.'
+        ]
+      },
+      {
+        verb: 'sair',
+        correct: 'Vocês saíam juntos à noite?',
+        wrong: [
+          'Vocês saem juntos à noite?',
+          'Vocês saí juntos à noite?',
+          'Vocês saímos juntos à noite?',
+          'Vocês saía juntos à noite?'
+        ]
+      },
+      // SABER - PRESENT
+      {
+        verb: 'saber',
+        correct: 'Eu sei a resposta.',
+        wrong: [
+          'Eu sabes a resposta.',
+          'Eu sabe a resposta.',
+          'Eu soube a resposta.',
+          'Eu sabia a resposta.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Tu sabes falar francês?',
+        wrong: [
+          'Tu sei falar francês?',
+          'Tu sabe falar francês?',
+          'Tu soubeste falar francês?',
+          'Tu sabias falar francês?'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Ele sabe o caminho.',
+        wrong: [
+          'Ele sei o caminho.',
+          'Ele sabes o caminho.',
+          'Ele soube o caminho.',
+          'Ele sabia o caminho.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Ela sabe cozinhar.',
+        wrong: [
+          'Ela sei cozinhar.',
+          'Ela sabes cozinhar.',
+          'Ela soube cozinhar.',
+          'Ela sabia cozinhar.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Você sabe onde fica?',
+        wrong: [
+          'Você sei onde fica?',
+          'Você sabes onde fica?',
+          'Você soube onde fica?',
+          'Você sabia onde fica?'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Nós sabemos a verdade.',
+        wrong: [
+          'Nós sabem a verdade.',
+          'Nós soubemos a verdade.',
+          'Nós sabíamos a verdade.',
+          'Nós sabe a verdade.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Eles sabem o resultado.',
+        wrong: [
+          'Eles sabemos o resultado.',
+          'Eles soube o resultado.',
+          'Eles sabiam o resultado.',
+          'Eles sabe o resultado.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Elas sabem a resposta.',
+        wrong: [
+          'Elas sabemos a resposta.',
+          'Elas soube a resposta.',
+          'Elas sabiam a resposta.',
+          'Elas sabe a resposta.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Vocês sabem o que fazer?',
+        wrong: [
+          'Vocês sabemos o que fazer?',
+          'Vocês soube o que fazer?',
+          'Vocês sabiam o que fazer?',
+          'Vocês sabe o que fazer?'
+        ]
+      },
+      // SABER - SIMPLE PAST
+      {
+        verb: 'saber',
+        correct: 'Eu soube da notícia ontem.',
+        wrong: [
+          'Eu sei da notícia ontem.',
+          'Eu sabia da notícia ontem.',
+          'Eu sabes da notícia ontem.',
+          'Eu soubeste da notícia ontem.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Tu soubeste a verdade?',
+        wrong: [
+          'Tu sabes a verdade?',
+          'Tu sabia a verdade?',
+          'Tu soube a verdade?',
+          'Tu soubemos a verdade?'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Ele soube do resultado.',
+        wrong: [
+          'Ele sabe do resultado.',
+          'Ele sabia do resultado.',
+          'Ele soubi do resultado.',
+          'Ele soubemos do resultado.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Ela soube do acidente.',
+        wrong: [
+          'Ela sabe do acidente.',
+          'Ela sabia do acidente.',
+          'Ela soubi do acidente.',
+          'Ela soubemos do acidente.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Você soube da decisão?',
+        wrong: [
+          'Você sabe da decisão?',
+          'Você sabia da decisão?',
+          'Você soubi da decisão?',
+          'Você soubemos da decisão?'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Nós soubemos do resultado final.',
+        wrong: [
+          'Nós sabemos do resultado final.',
+          'Nós sabíamos do resultado final.',
+          'Nós soube do resultado final.',
+          'Nós soubi do resultado final.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Eles souberam da novidade.',
+        wrong: [
+          'Eles sabem da novidade.',
+          'Eles sabiam da novidade.',
+          'Eles soube da novidade.',
+          'Eles soubi da novidade.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Elas souberam do concurso.',
+        wrong: [
+          'Elas sabem do concurso.',
+          'Elas sabiam do concurso.',
+          'Elas soube do concurso.',
+          'Elas soubi do concurso.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Vocês souberam do resultado?',
+        wrong: [
+          'Vocês sabem do resultado?',
+          'Vocês sabiam do resultado?',
+          'Vocês soube do resultado?',
+          'Vocês soubi do resultado?'
+        ]
+      },
+      // SABER - IMPERFECT PAST
+      {
+        verb: 'saber',
+        correct: 'Eu sabia ler desde pequeno.',
+        wrong: [
+          'Eu sei ler desde pequeno.',
+          'Eu soube ler desde pequeno.',
+          'Eu sabes ler desde pequeno.',
+          'Eu sabíamos ler desde pequeno.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Tu sabias nadar?',
+        wrong: [
+          'Tu sabes nadar?',
+          'Tu soubeste nadar?',
+          'Tu sabia nadar?',
+          'Tu sabíamos nadar?'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Ele sabia tocar piano.',
+        wrong: [
+          'Ele sabe tocar piano.',
+          'Ele soube tocar piano.',
+          'Ele sabíamos tocar piano.',
+          'Ele soubemos tocar piano.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Ela sabia falar inglês.',
+        wrong: [
+          'Ela sabe falar inglês.',
+          'Ela soube falar inglês.',
+          'Ela sabíamos falar inglês.',
+          'Ela soubemos falar inglês.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Você sabia o segredo?',
+        wrong: [
+          'Você sabe o segredo?',
+          'Você soube o segredo?',
+          'Você sabíamos o segredo?',
+          'Você soubemos o segredo?'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Nós sabíamos a resposta.',
+        wrong: [
+          'Nós sabemos a resposta.',
+          'Nós soube a resposta.',
+          'Nós soubemos a resposta.',
+          'Nós sabia a resposta.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Eles sabiam o caminho.',
+        wrong: [
+          'Eles sabem o caminho.',
+          'Eles soube o caminho.',
+          'Eles soubemos o caminho.',
+          'Eles sabia o caminho.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Elas sabiam a verdade.',
+        wrong: [
+          'Elas sabem a verdade.',
+          'Elas soube a verdade.',
+          'Elas soubemos a verdade.',
+          'Elas sabia a verdade.'
+        ]
+      },
+      {
+        verb: 'saber',
+        correct: 'Vocês sabiam o que fazer?',
+        wrong: [
+          'Vocês sabem o que fazer?',
+          'Vocês soube o que fazer?',
+          'Vocês soubemos o que fazer?',
+          'Vocês sabia o que fazer?'
+        ]
+      },
+      // QUERER - PRESENT
+      {
+        verb: 'querer',
+        correct: 'Eu quero aprender português.',
+        wrong: [
+          'Eu queres aprender português.',
+          'Eu quer aprender português.',
+          'Eu quis aprender português.',
+          'Eu queria aprender português.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Tu queres um café?',
+        wrong: [
+          'Tu quero um café?',
+          'Tu quer um café?',
+          'Tu quiseste um café?',
+          'Tu querias um café?'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Ele quer sair cedo.',
+        wrong: [
+          'Ele quero sair cedo.',
+          'Ele queres sair cedo.',
+          'Ele quis sair cedo.',
+          'Ele queria sair cedo.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Ela quer viajar este verão.',
+        wrong: [
+          'Ela quero viajar este verão.',
+          'Ela queres viajar este verão.',
+          'Ela quis viajar este verão.',
+          'Ela queria viajar este verão.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Você quer jantar fora?',
+        wrong: [
+          'Você quero jantar fora?',
+          'Você queres jantar fora?',
+          'Você quis jantar fora?',
+          'Você queria jantar fora?'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Nós queremos ver o filme.',
+        wrong: [
+          'Nós querem ver o filme.',
+          'Nós quisemos ver o filme.',
+          'Nós queríamos ver o filme.',
+          'Nós quer ver o filme.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Eles querem viajar juntos.',
+        wrong: [
+          'Eles queremos viajar juntos.',
+          'Eles quis viajar juntos.',
+          'Eles queriam viajar juntos.',
+          'Eles quer viajar juntos.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Elas querem aprender mais.',
+        wrong: [
+          'Elas queremos aprender mais.',
+          'Elas quis aprender mais.',
+          'Elas queriam aprender mais.',
+          'Elas quer aprender mais.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Vocês querem sobremesa?',
+        wrong: [
+          'Vocês queremos sobremesa?',
+          'Vocês quis sobremesa?',
+          'Vocês queriam sobremesa?',
+          'Vocês quer sobremesa?'
+        ]
+      },
+      // QUERER - SIMPLE PAST
+      {
+        verb: 'querer',
+        correct: 'Eu quis falar contigo ontem.',
+        wrong: [
+          'Eu quero falar contigo ontem.',
+          'Eu queria falar contigo ontem.',
+          'Eu queres falar contigo ontem.',
+          'Eu quiseste falar contigo ontem.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Tu quiseste sair cedo?',
+        wrong: [
+          'Tu queres sair cedo?',
+          'Tu queria sair cedo?',
+          'Tu quis sair cedo?',
+          'Tu quisemos sair cedo?'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Ele quis experimentar o prato novo.',
+        wrong: [
+          'Ele quer experimentar o prato novo.',
+          'Ele queria experimentar o prato novo.',
+          'Ele quise experimentar o prato novo.',
+          'Ele quisemos experimentar o prato novo.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Ela quis ver o filme.',
+        wrong: [
+          'Ela quer ver o filme.',
+          'Ela queria ver o filme.',
+          'Ela quise ver o filme.',
+          'Ela quisemos ver o filme.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Você quis sair ontem?',
+        wrong: [
+          'Você quer sair ontem?',
+          'Você queria sair ontem?',
+          'Você quise sair ontem?',
+          'Você quisemos sair ontem?'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Nós quisemos viajar nas férias.',
+        wrong: [
+          'Nós queremos viajar nas férias.',
+          'Nós queríamos viajar nas férias.',
+          'Nós quis viajar nas férias.',
+          'Nós quise viajar nas férias.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Eles quiseram sair cedo.',
+        wrong: [
+          'Eles querem sair cedo.',
+          'Eles queriam sair cedo.',
+          'Eles quis sair cedo.',
+          'Eles quise sair cedo.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Elas quiseram experimentar o bolo.',
+        wrong: [
+          'Elas querem experimentar o bolo.',
+          'Elas queriam experimentar o bolo.',
+          'Elas quis experimentar o bolo.',
+          'Elas quise experimentar o bolo.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Vocês quiseram ir ao concerto?',
+        wrong: [
+          'Vocês querem ir ao concerto?',
+          'Vocês queriam ir ao concerto?',
+          'Vocês quis ir ao concerto?',
+          'Vocês quise ir ao concerto?'
+        ]
+      },
+      // QUERER - IMPERFECT PAST
+      {
+        verb: 'querer',
+        correct: 'Eu queria ser médico.',
+        wrong: [
+          'Eu quero ser médico.',
+          'Eu quis ser médico.',
+          'Eu queres ser médico.',
+          'Eu queríamos ser médico.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Tu querias viajar pelo mundo.',
+        wrong: [
+          'Tu queres viajar pelo mundo.',
+          'Tu quis viajar pelo mundo.',
+          'Tu queria viajar pelo mundo.',
+          'Tu queríamos viajar pelo mundo.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Ele queria aprender a tocar guitarra.',
+        wrong: [
+          'Ele quer aprender a tocar guitarra.',
+          'Ele quis aprender a tocar guitarra.',
+          'Ele queríamos aprender a tocar guitarra.',
+          'Ele quisemos aprender a tocar guitarra.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Ela queria estudar medicina.',
+        wrong: [
+          'Ela quer estudar medicina.',
+          'Ela quis estudar medicina.',
+          'Ela queríamos estudar medicina.',
+          'Ela quisemos estudar medicina.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Você queria mudar de cidade?',
+        wrong: [
+          'Você quer mudar de cidade?',
+          'Você quis mudar de cidade?',
+          'Você queríamos mudar de cidade?',
+          'Você quisemos mudar de cidade?'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Nós queríamos comprar uma casa.',
+        wrong: [
+          'Nós queremos comprar uma casa.',
+          'Nós quis comprar uma casa.',
+          'Nós quisemos comprar uma casa.',
+          'Nós queria comprar uma casa.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Eles queriam viajar para o Brasil.',
+        wrong: [
+          'Eles querem viajar para o Brasil.',
+          'Eles quis viajar para o Brasil.',
+          'Eles quisemos viajar para o Brasil.',
+          'Eles queria viajar para o Brasil.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Elas queriam aprender francês.',
+        wrong: [
+          'Elas querem aprender francês.',
+          'Elas quis aprender francês.',
+          'Elas quisemos aprender francês.',
+          'Elas queria aprender francês.'
+        ]
+      },
+      {
+        verb: 'querer',
+        correct: 'Vocês queriam sair mais cedo?',
+        wrong: [
+          'Vocês querem sair mais cedo?',
+          'Vocês quis sair mais cedo?',
+          'Vocês quisemos sair mais cedo?',
+          'Vocês queria sair mais cedo?'
+        ]
+      },
+      // DIZER - PRESENT
+      {
+        verb: 'dizer',
+        correct: 'Eu digo sempre a verdade.',
+        wrong: [
+          'Eu dizes sempre a verdade.',
+          'Eu diz sempre a verdade.',
+          'Eu disse sempre a verdade.',
+          'Eu dizia sempre a verdade.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Tu dizes o que pensas.',
+        wrong: [
+          'Tu digo o que pensas.',
+          'Tu diz o que pensas.',
+          'Tu disseste o que pensas.',
+          'Tu dizias o que pensas.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Ele diz que vai chover.',
+        wrong: [
+          'Ele digo que vai chover.',
+          'Ele dizes que vai chover.',
+          'Ele disse que vai chover.',
+          'Ele dizia que vai chover.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Ela diz sempre bom dia.',
+        wrong: [
+          'Ela digo sempre bom dia.',
+          'Ela dizes sempre bom dia.',
+          'Ela disse sempre bom dia.',
+          'Ela dizia sempre bom dia.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Você diz a verdade?',
+        wrong: [
+          'Você digo a verdade?',
+          'Você dizes a verdade?',
+          'Você disse a verdade?',
+          'Você dizia a verdade?'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Nós dizemos tudo o que sabemos.',
+        wrong: [
+          'Nós dizem tudo o que sabemos.',
+          'Nós dissemos tudo o que sabemos.',
+          'Nós dizíamos tudo o que sabemos.',
+          'Nós diz tudo o que sabemos.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Eles dizem que vão chegar tarde.',
+        wrong: [
+          'Eles dizemos que vão chegar tarde.',
+          'Eles disse que vão chegar tarde.',
+          'Eles diziam que vão chegar tarde.',
+          'Eles diz que vão chegar tarde.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Elas dizem sempre a mesma coisa.',
+        wrong: [
+          'Elas dizemos sempre a mesma coisa.',
+          'Elas disse sempre a mesma coisa.',
+          'Elas diziam sempre a mesma coisa.',
+          'Elas diz sempre a mesma coisa.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Vocês dizem o nome do restaurante?',
+        wrong: [
+          'Vocês dizemos o nome do restaurante?',
+          'Vocês disse o nome do restaurante?',
+          'Vocês diziam o nome do restaurante?',
+          'Vocês diz o nome do restaurante?'
+        ]
+      },
+      // DIZER - SIMPLE PAST
+      {
+        verb: 'dizer',
+        correct: 'Eu disse tudo ontem.',
+        wrong: [
+          'Eu digo tudo ontem.',
+          'Eu dizia tudo ontem.',
+          'Eu dizes tudo ontem.',
+          'Eu disseste tudo ontem.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Tu disseste a verdade?',
+        wrong: [
+          'Tu dizes a verdade?',
+          'Tu dizia a verdade?',
+          'Tu disse a verdade?',
+          'Tu dissemos a verdade?'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Ele disse o que aconteceu.',
+        wrong: [
+          'Ele diz o que aconteceu.',
+          'Ele dizia o que aconteceu.',
+          'Ele digo o que aconteceu.',
+          'Ele dissemos o que aconteceu.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Ela disse o segredo.',
+        wrong: [
+          'Ela diz o segredo.',
+          'Ela dizia o segredo.',
+          'Ela digo o segredo.',
+          'Ela dissemos o segredo.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Você disse o nome?',
+        wrong: [
+          'Você diz o nome?',
+          'Você dizia o nome?',
+          'Você digo o nome?',
+          'Você dissemos o nome?'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Nós dissemos tudo ao professor.',
+        wrong: [
+          'Nós dizemos tudo ao professor.',
+          'Nós dizíamos tudo ao professor.',
+          'Nós disse tudo ao professor.',
+          'Nós digo tudo ao professor.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Eles disseram a verdade.',
+        wrong: [
+          'Eles dizem a verdade.',
+          'Eles diziam a verdade.',
+          'Eles disse a verdade.',
+          'Eles digo a verdade.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Elas disseram o que pensavam.',
+        wrong: [
+          'Elas dizem o que pensavam.',
+          'Elas diziam o que pensavam.',
+          'Elas disse o que pensavam.',
+          'Elas digo o que pensavam.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Vocês disseram tudo?',
+        wrong: [
+          'Vocês dizem tudo?',
+          'Vocês diziam tudo?',
+          'Vocês disse tudo?',
+          'Vocês digo tudo?'
+        ]
+      },
+      // DIZER - IMPERFECT PAST
+      {
+        verb: 'dizer',
+        correct: 'Eu dizia sempre a mesma coisa.',
+        wrong: [
+          'Eu digo sempre a mesma coisa.',
+          'Eu disse sempre a mesma coisa.',
+          'Eu dizes sempre a mesma coisa.',
+          'Eu dizíamos sempre a mesma coisa.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Tu dizias a verdade?',
+        wrong: [
+          'Tu dizes a verdade?',
+          'Tu disseste a verdade?',
+          'Tu dizia a verdade.',
+          'Tu dizíamos a verdade?'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Ele dizia histórias engraçadas.',
+        wrong: [
+          'Ele diz histórias engraçadas.',
+          'Ele disse histórias engraçadas.',
+          'Ele dizíamos histórias engraçadas.',
+          'Ele dissemos histórias engraçadas.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Ela dizia sempre bom dia.',
+        wrong: [
+          'Ela diz sempre bom dia.',
+          'Ela disse sempre bom dia.',
+          'Ela dizíamos sempre bom dia.',
+          'Ela dissemos sempre bom dia.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Você dizia o nome da rua?',
+        wrong: [
+          'Você diz o nome da rua?',
+          'Você disse o nome da rua?',
+          'Você dizíamos o nome da rua?',
+          'Você dissemos o nome da rua?'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Nós dizíamos tudo ao amigo.',
+        wrong: [
+          'Nós dizemos tudo ao amigo.',
+          'Nós disse tudo ao amigo.',
+          'Nós dissemos tudo ao amigo.',
+          'Nós dizia tudo ao amigo.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Eles diziam sempre a mesma coisa.',
+        wrong: [
+          'Eles dizem sempre a mesma coisa.',
+          'Eles disse sempre a mesma coisa.',
+          'Eles dissemos sempre a mesma coisa.',
+          'Eles dizia sempre a mesma coisa.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Elas diziam o que pensavam.',
+        wrong: [
+          'Elas dizem o que pensavam.',
+          'Elas disse o que pensavam.',
+          'Elas dissemos o que pensavam.',
+          'Elas dizia o que pensavam.'
+        ]
+      },
+      {
+        verb: 'dizer',
+        correct: 'Vocês diziam a verdade?',
+        wrong: [
+          'Vocês dizem a verdade?',
+          'Vocês disse a verdade?',
+          'Vocês dissemos a verdade?',
+          'Vocês dizia a verdade?'
+        ]
+      },
+      // HAVER - PRESENT
+      {
+        verb: 'haver',
+        correct: 'Eu hei de viajar para o Brasil.',
+        wrong: [
+          'Eu hás de viajar para o Brasil.',
+          'Eu há de viajar para o Brasil.',
+          'Eu houve de viajar para o Brasil.',
+          'Eu havia de viajar para o Brasil.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Tu hás de gostar deste livro.',
+        wrong: [
+          'Tu hei de gostar deste livro.',
+          'Tu há de gostar deste livro.',
+          'Tu houveste de gostar deste livro.',
+          'Tu havias de gostar deste livro.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Ele há de chegar cedo.',
+        wrong: [
+          'Ele hei de chegar cedo.',
+          'Ele hás de chegar cedo.',
+          'Ele houve de chegar cedo.',
+          'Ele havia de chegar cedo.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Ela há de conseguir o emprego.',
+        wrong: [
+          'Ela hei de conseguir o emprego.',
+          'Ela hás de conseguir o emprego.',
+          'Ela houve de conseguir o emprego.',
+          'Ela havia de conseguir o emprego.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Você há de ver o resultado.',
+        wrong: [
+          'Você hei de ver o resultado.',
+          'Você hás de ver o resultado.',
+          'Você houve de ver o resultado.',
+          'Você havia de ver o resultado.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Nós havemos de vencer.',
+        wrong: [
+          'Nós hão de vencer.',
+          'Nós houvemos de vencer.',
+          'Nós havíamos de vencer.',
+          'Nós há de vencer.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Eles hão de participar na reunião.',
+        wrong: [
+          'Eles havemos de participar na reunião.',
+          'Eles houve de participar na reunião.',
+          'Eles haviam de participar na reunião.',
+          'Eles há de participar na reunião.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Elas hão de terminar o trabalho.',
+        wrong: [
+          'Elas havemos de terminar o trabalho.',
+          'Elas houve de terminar o trabalho.',
+          'Elas haviam de terminar o trabalho.',
+          'Elas há de terminar o trabalho.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Vocês hão de gostar da comida?',
+        wrong: [
+          'Vocês havemos de gostar da comida?',
+          'Vocês houve de gostar da comida?',
+          'Vocês haviam de gostar da comida?',
+          'Vocês há de gostar da comida?'
+        ]
+      },
+      // HAVER - SIMPLE PAST
+      {
+        verb: 'haver',
+        correct: 'Eu houve um problema ontem.',
+        wrong: [
+          'Eu hei um problema ontem.',
+          'Eu havia um problema ontem.',
+          'Eu hás um problema ontem.',
+          'Eu houveste um problema ontem.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Tu houveste uma ideia brilhante.',
+        wrong: [
+          'Tu hás uma ideia brilhante.',
+          'Tu havia uma ideia brilhante.',
+          'Tu houve uma ideia brilhante.',
+          'Tu houvemos uma ideia brilhante.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Ele houve um acidente na rua.',
+        wrong: [
+          'Ele há um acidente na rua.',
+          'Ele havia um acidente na rua.',
+          'Ele hei um acidente na rua.',
+          'Ele houvemos um acidente na rua.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Ela houve uma festa ontem.',
+        wrong: [
+          'Ela há uma festa ontem.',
+          'Ela havia uma festa ontem.',
+          'Ela hei uma festa ontem.',
+          'Ela houvemos uma festa ontem.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Você houve um erro?',
+        wrong: [
+          'Você há um erro?',
+          'Você havia um erro?',
+          'Você hei um erro?',
+          'Você houvemos um erro?'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Nós houvemos dificuldades.',
+        wrong: [
+          'Nós havemos dificuldades.',
+          'Nós havíamos dificuldades.',
+          'Nós houve dificuldades.',
+          'Nós houvi dificuldades.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Eles houveram muitos problemas.',
+        wrong: [
+          'Eles havemos muitos problemas.',
+          'Eles havia muitos problemas.',
+          'Eles houve muitos problemas.',
+          'Eles houvi muitos problemas.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Elas houveram várias reuniões.',
+        wrong: [
+          'Elas havemos várias reuniões.',
+          'Elas havia várias reuniões.',
+          'Elas houve várias reuniões.',
+          'Elas houvi várias reuniões.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Vocês houveram dificuldades?',
+        wrong: [
+          'Vocês havemos dificuldades?',
+          'Vocês havia dificuldades?',
+          'Vocês houve dificuldades?',
+          'Vocês houvi dificuldades?'
+        ]
+      },
+      // HAVER - IMPERFECT PAST
+      {
+        verb: 'haver',
+        correct: 'Eu havia pensado nisso antes.',
+        wrong: [
+          'Eu hei pensado nisso antes.',
+          'Eu houve pensado nisso antes.',
+          'Eu hás pensado nisso antes.',
+          'Eu havíamos pensado nisso antes.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Tu havias visto o filme?',
+        wrong: [
+          'Tu hás visto o filme?',
+          'Tu houve visto o filme?',
+          'Tu havia visto o filme.',
+          'Tu havíamos visto o filme?'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Ele havia lido o livro.',
+        wrong: [
+          'Ele há lido o livro.',
+          'Ele houve lido o livro.',
+          'Ele havíamos lido o livro.',
+          'Ele houvemos lido o livro.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Ela havia terminado o trabalho.',
+        wrong: [
+          'Ela há terminado o trabalho.',
+          'Ela houve terminado o trabalho.',
+          'Ela havíamos terminado o trabalho.',
+          'Ela houvemos terminado o trabalho.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Você havia dito isso?',
+        wrong: [
+          'Você há dito isso?',
+          'Você houve dito isso?',
+          'Você havíamos dito isso?',
+          'Você houvemos dito isso?'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Nós havíamos combinado antes.',
+        wrong: [
+          'Nós havemos combinado antes.',
+          'Nós houve combinado antes.',
+          'Nós houvemos combinado antes.',
+          'Nós havia combinado antes.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Eles haviam chegado cedo.',
+        wrong: [
+          'Eles havemos chegado cedo.',
+          'Eles houve chegado cedo.',
+          'Eles houvemos chegado cedo.',
+          'Eles havia chegado cedo.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Elas haviam feito o trabalho.',
+        wrong: [
+          'Elas havemos feito o trabalho.',
+          'Elas houve feito o trabalho.',
+          'Elas houvemos feito o trabalho.',
+          'Elas havia feito o trabalho.'
+        ]
+      },
+      {
+        verb: 'haver',
+        correct: 'Vocês haviam terminado o curso?',
+        wrong: [
+          'Vocês havemos terminado o curso?',
+          'Vocês houve terminado o curso?',
+          'Vocês houvemos terminado o curso?',
+          'Vocês havia terminado o curso?'
+        ]
+      }
+    ];
+
+    const app = Vue.createApp({
+      data() {
+        return {
+          verbs: [...irregularVerbs],
+          currentIdx: 0,
+          shuffledSentences: [],
+          correctIdx: null,
+          selectedIdx: null,
+          correctFound: false,
+          incorrectGuesses: [],
+          regularsLoaded: false
+        };
+      },
+      computed: {
+        currentVerb() {
+          return this.verbs[this.currentIdx] || null;
+        }
+      },
+      methods: {
+        shuffleSentences() {
+          if (!this.currentVerb) return;
+          const sentences = [this.currentVerb.correct, ...this.currentVerb.wrong];
+          // Fisher-Yates shuffle
+          for (let i = sentences.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [sentences[i], sentences[j]] = [sentences[j], sentences[i]];
+          }
+          this.shuffledSentences = sentences;
+          this.correctIdx = sentences.indexOf(this.currentVerb.correct);
+          this.selectedIdx = null;
+          this.correctFound = false;
+          this.incorrectGuesses = [];
+        },
+        selectSentence(idx) {
+          this.selectedIdx = idx;
+          if (idx === this.correctIdx) {
+            this.correctFound = true;
+          } else {
+            if (!this.incorrectGuesses.includes(idx)) {
+              this.incorrectGuesses.push(idx);
+            }
+          }
+        },
+        nextVerb() {
+          this.currentIdx++;
+          this.shuffleSentences();
+        }
+      },
+      mounted() {
+        this.shuffleSentences();
+        // Dynamically load regular verbs after mount
+        import('./verbs_data.js').then(module => {
+          // Interleave irregular and regular verbs 1:1
+          const regulars = module.regularVerbs;
+          const irregulars = irregularVerbs;
+          const mixed = [];
+          const maxLen = Math.max(irregulars.length, regulars.length);
+          for (let i = 0; i < maxLen; i++) {
+            if (i < irregulars.length) mixed.push(irregulars[i]);
+            if (i < regulars.length) mixed.push(regulars[i]);
+          }
+          this.verbs = mixed;
+          this.regularsLoaded = true;
+        });
+      },
+      watch: {
+        currentIdx() {
+          this.shuffleSentences();
+        }
+      }
+    });
+    app.mount('#app');
+  </script>
+</body>
+</html> 
